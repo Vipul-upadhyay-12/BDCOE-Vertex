@@ -1,20 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'core/constants/app_colors.dart';
+import 'views/auth_view.dart';
+import 'views/link_handles_view.dart';
 
 void main() {
-  runApp(const MainApp());
+  runApp(const MyApp());
 }
 
-class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text('Hello World!'),
-        ),
+    return GetMaterialApp(
+      title: 'CPPro',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: AppColors.background,
+        primaryColor: AppColors.primaryGreen,
       ),
+      initialRoute: '/auth',
+      getPages: [
+        GetPage(name: '/auth', page: () => AuthView()),
+        GetPage(name: '/link-handles', page: () => LinkHandlesView()),
+        // Upcoming: GetPage(name: '/dashboard', page: () => DashboardView()),
+      ],
     );
   }
 }
