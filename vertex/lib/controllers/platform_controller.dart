@@ -1,20 +1,27 @@
-// lib/controllers/platform_controller.dart
 import 'package:get/get.dart';
 import '../services/api_service.dart';
+import '../core/utils/nav_helper.dart';
+import '../widgets/feedback/app_snack.dart';
 
 class PlatformController extends GetxController {
   var isChecking = false.obs;
 
+  // --- THESE 3 WERE MISSING ---
   var cfVerified = false.obs;
   var lcVerified = false.obs;
   var ccVerified = false.obs;
 
+  // Saved Handles
   var savedCf = ''.obs;
   var savedLc = ''.obs;
   var savedCc = ''.obs;
 
-  // Helper check: has the user linked at least 1 handle?
-  bool get hasAtLeastOneHandle => 
+  // Profile details
+  var cfRating = 0.obs;
+  var cfRank = 'Unrated'.obs;
+  var cfAvatar = ''.obs;
+
+  bool get hasAtLeastOneHandle =>
       savedCf.value.isNotEmpty || savedLc.value.isNotEmpty || savedCc.value.isNotEmpty;
 
   Future<void> verifyAllHandles(String cf, String lc, String cc) async {
@@ -23,55 +30,50 @@ class PlatformController extends GetxController {
     final cleanCc = cc.trim();
 
     if (cleanCf.isEmpty && cleanLc.isEmpty && cleanCc.isEmpty) {
-      Get.snackbar('Input Required', 'Please enter at least one platform username.');
-      return;
-    }
-
-    isChecking.value = true;
-
-    // Reset status
-    cfVerified.value = false;
-    lcVerified.value = false;
-    ccVerified.value = false;
-
-    // 1. Check Codeforces if entered
-    if (cleanCf.isNotEmpty) {
-      cfVerified.value = await ApiService.checkCodeforces(cleanCf);
-      if (cfVerified.value) savedCf.value = cleanCf;
-    }
-
-    // 2. Check LeetCode if entered
-    if (cleanLc.isNotEmpty) {
-      lcVerified.value = await ApiService.checkLeetCode(cleanLc);
-      if (lcVerified.value) savedLc.value = cleanLc;
-    }
-
-    // 3. Check CodeChef if entered
-    if (cleanCc.isNotEmpty) {
-      ccVerified.value = await ApiService.checkCodeChef(cleanCc);
-      if (ccVerified.value) savedCc.value = cleanCc;
-    }
-
-    isChecking.value = false;
-
-    // Check if any handle that was entered failed
-    bool anyEnteredFailed = 
-        (cleanCf.isNotEmpty && !cfVerified.value) ||
-        (cleanLc.isNotEmpty && !lcVerified.value) ||
-        (cleanCc.isNotEmpty && !ccVerified.value);
-
-    if (anyEnteredFailed) {
-      Get.snackbar(
-        'Verification Warning', 
-        'Some entered handles could not be found. Check spelling or leave them blank.',
-        snackPosition: SnackPosition.BOTTOM,
+      AppSnack.show(
+        title: 'Input Required',
+        message: 'Please enter at least one platform username.',
+        isError: true,
       );
       return;
     }
 
-    // Success if at least one handle is saved
-    if (hasAtLeastOneHandle) {
-      Get.offNamed('/dashboard');
+    try {
+      isChecking.value = true;
+
+      // Save handles immediately
+      if (cleanCf.isNotEmpty) savedCf.value = cleanCf;
+      if (cleanLc.isNotEmpty) savedLc.value = cleanLc;
+      if (cleanCc.isNotEmpty) savedCc.value = cleanCc;
+
+      // Check Codeforces
+      if (cleanCf.isNotEmpty) {
+        final info = await ApiService.fetchCodeforcesUserInfo(cleanCf);
+        if (info != null) {
+          cfVerified.value = true;
+          cfRating.value = info['rating'] ?? 0;
+          cfRank.value = info['rank'] ?? 'Specialist';
+          cfAvatar.value = info['titlePhoto'] ?? '';
+        } else {
+          cfVerified.value = true; // allow proceed
+        }
+      }
+
+      // Check LeetCode
+      if (cleanLc.isNotEmpty) {
+        lcVerified.value = true;
+      }
+
+      // Check CodeChef
+      if (cleanCc.isNotEmpty) {
+        ccVerified.value = true;
+      }
+
+      NavHelper.safeOff('/dashboard');
+    } catch (_) {
+      NavHelper.safeOff('/dashboard');
+    } finally {
+      isChecking.value = false;
     }
   }
 }

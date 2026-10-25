@@ -4,25 +4,27 @@ import '../controllers/platform_controller.dart';
 import '../core/constants/app_colors.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/platform_input_card.dart';
+import '../widgets/navigation/app_top_bar.dart';
 
 class LinkHandlesView extends StatelessWidget {
   LinkHandlesView({super.key});
 
-  final platform = Get.put(PlatformController());
+  final platform = Get.find<PlatformController>();
 
-  final cfCtrl = TextEditingController();
-  final lcCtrl = TextEditingController();
-  final ccCtrl = TextEditingController();
+  final TextEditingController cfCtrl = TextEditingController();
+  final TextEditingController lcCtrl = TextEditingController();
+  final TextEditingController ccCtrl = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
+    // Pre-populate with current values if editing
+    cfCtrl.text = platform.savedCf.value;
+    lcCtrl.text = platform.savedLc.value;
+    ccCtrl.text = platform.savedCc.value;
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text("Link Profiles", style: TextStyle(fontSize: 18, color: Colors.white)),
-      ),
+      appBar: const AppTopBar(title: "Connect Profiles", showBack: true),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -31,16 +33,17 @@ class LinkHandlesView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
-                  "Connect Coding Handles",
+                  "Configure Coding Handles",
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  "Connect Codeforces, LeetCode, and CodeChef to aggregate your progress.",
+                  "Enter at least one username. Leave blank if you don't use that platform.",
                   style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                 ),
                 const SizedBox(height: 24),
 
+                // .value eliminates the red squiggly lines:
                 PlatformInputCard(
                   title: "Codeforces",
                   hint: "e.g. tourist",
@@ -65,12 +68,18 @@ class LinkHandlesView extends StatelessWidget {
                   icon: Icons.restaurant_menu_rounded,
                   isVerified: platform.ccVerified.value,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
                 PrimaryButton(
-                  label: "Verify & Continue →",
+                  label: "Save & Continue →",
                   isLoading: platform.isChecking.value,
-                  onTap: () => platform.verifyAllHandles(cfCtrl.text, lcCtrl.text, ccCtrl.text),
+                  onTap: () {
+                    platform.verifyAllHandles(
+                      cfCtrl.text,
+                      lcCtrl.text,
+                      ccCtrl.text,
+                    );
+                  },
                 ),
               ],
             ),

@@ -46,7 +46,22 @@ class ApiService {
       return false;
     }
   }
+  // Fetches rating, rank name (Expert, Candidate Master), and avatar
+  static Future<Map<String, dynamic>?> fetchCodeforcesUserInfo(String handle) async {
+    try {
+      final res = await http
+          .get(Uri.parse('https://codeforces.com/api/user.info?handles=$handle'))
+          .timeout(const Duration(seconds: 4));
 
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'OK' && (data['result'] as List).isNotEmpty) {
+          return data['result'][0] as Map<String, dynamic>;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
   // --- FULL DATA FETCHERS (Resolves your red lines) ---
 
   // 1. Codeforces Submissions + Rating History
