@@ -22,15 +22,10 @@ class ApiService {
 
   static Future<bool> checkLeetCode(String username) async {
     try {
-      final query = 'query { matchedUser(username: "$username") { username } }';
-      final res = await http.post(
-        Uri.parse('https://leetcode.com/graphql'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'query': query}),
-      );
+      final res = await http.get(Uri.parse('https://alfa-leetcode-api.onrender.com/$username'));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        return data['data']?['matchedUser'] != null;
+        return data['errors'] == null && data['username'] != null;
       }
       return false;
     } catch (_) {
@@ -40,19 +35,20 @@ class ApiService {
 
   static Future<bool> checkCodeChef(String username) async {
     try {
-      final res = await http.get(Uri.parse('https://www.codechef.com/users/$username'));
-      return res.statusCode == 200 && !res.body.contains("User doesn't exist");
+      final res = await http.get(Uri.parse('https://codechef-api.vercel.app/handle/$username'));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['success'] == true || data['currentRating'] != null;
+      }
+      return false;
     } catch (_) {
       return false;
     }
   }
-  // Fetches rating, rank name (Expert, Candidate Master), and avatar
+
   static Future<Map<String, dynamic>?> fetchCodeforcesUserInfo(String handle) async {
     try {
-      final res = await http
-          .get(Uri.parse('https://codeforces.com/api/user.info?handles=$handle'))
-          .timeout(const Duration(seconds: 4));
-
+      final res = await http.get(Uri.parse('https://codeforces.com/api/user.info?handles=$handle'));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['status'] == 'OK' && (data['result'] as List).isNotEmpty) {
@@ -62,120 +58,191 @@ class ApiService {
     } catch (_) {}
     return null;
   }
-  // --- FULL DATA FETCHERS (Resolves your red lines) ---
 
-  // 1. Codeforces Submissions + Rating History
+  // --- DATA FETCHERS ---
+
+  // 1. Codeforces
   static Future<PlatformDataBundle> fetchCodeforcesData(String handle) async {
     List<SubmissionModel> subs = [];
     List<RatingPointModel> ratings = [];
+    Set<String> seenProblems = {};
 
     try {
-      // Submissions
-      final subRes = await http.get(
-        Uri.parse('https://codeforces.com/api/user.status?handle=$handle&from=1&count=100'),
-      );
+      final subRes = await http.get(Uri.parse('https://codeforces.com/api/user.status?handle=$handle'));
       if (subRes.statusCode == 200) {
         final data = jsonDecode(subRes.body);
-        if (data['status'] == 'OK') {
+        if (data['status'] == 'OK' && data['result'] != null) {
           for (var item in data['result']) {
             if (item['verdict'] == 'OK') {
-              subs.add(
-                SubmissionModel(
-                  problemName: item['problem']['name'] ?? 'CF Problem',
-                  platform: 'CF',
-                  solvedAt: DateTime.fromMillisecondsSinceEpoch(
-                    (item['creationTimeSeconds'] as int) * 1000,
+              final problem = item['problem'];
+              if (problem == null) continue;
+
+              final name = problem['name']?.toString() ?? 'CF Problem';
+              final id = "${problem['contestId'] ?? ''}${problem['index'] ?? ''}";
+              final key = id.isNotEmpty ? id : name;
+
+              if (!seenProblems.contains(key)) {
+                seenProblems.add(key);
+
+                final sec = item['creationTimeSeconds'];
+                final timeMs = sec is num ? (sec * 1000).toInt() : 0;
+
+                List<String> tags = [];
+                if (problem['tags'] != null && problem['tags'] is List) {
+                  for (var t in problem['tags']) {
+                    if (t != null && t.toString().trim().isNotEmpty) {
+                      tags.add(t.toString().trim());
+                    }
+                  }
+                }
+
+                subs.add(
+                  SubmissionModel(
+                    problemName: name,
+                    platform: 'CF',
+                    solvedAt: DateTime.fromMillisecondsSinceEpoch(timeMs),
+                    ratingOrDifficulty: problem['rating']?.toString(),
+                    tags: tags,
                   ),
-                  ratingOrDifficulty: item['problem']['rating']?.toString(),
+                );
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    try {
+      final ratingRes = await http.get(Uri.parse('https://codeforces.com/api/user.rating?handle=$handle'));
+      if (ratingRes.statusCode == 200) {
+        final data = jsonDecode(ratingRes.body);
+        if (data['status'] == 'OK' && data['result'] != null) {
+          for (var item in data['result']) {
+            final sec = item['ratingUpdateTimeSeconds'];
+            final timeMs = sec is num ? (sec * 1000).toInt() : 0;
+            final r = item['newRating'];
+            final ratingVal = r is num ? r.toInt() : 0;
+
+            if (ratingVal > 0) {
+              ratings.add(
+                RatingPointModel(
+                  date: DateTime.fromMillisecondsSinceEpoch(timeMs),
+                  rating: ratingVal,
+                  platform: 'CF',
                 ),
               );
             }
           }
         }
       }
-
-      // Rating Changes
-      final ratingRes = await http.get(
-        Uri.parse('https://codeforces.com/api/user.rating?handle=$handle'),
-      );
-      if (ratingRes.statusCode == 200) {
-        final data = jsonDecode(ratingRes.body);
-        if (data['status'] == 'OK') {
-          for (var item in data['result']) {
-            ratings.add(
-              RatingPointModel(
-                date: DateTime.fromMillisecondsSinceEpoch(
-                  (item['ratingUpdateTimeSeconds'] as int) * 1000,
-                ),
-                rating: item['newRating'] as int,
-                platform: 'CF',
-              ),
-            );
-          }
-        }
-      }
     } catch (_) {}
 
     return PlatformDataBundle(submissions: subs, ratings: ratings);
   }
 
-  // 2. LeetCode Submissions + Ratings
+  // 2. LeetCode (Powered by Open REST API)
   static Future<PlatformDataBundle> fetchLeetCodeData(String username) async {
     List<SubmissionModel> subs = [];
     List<RatingPointModel> ratings = [];
+    Set<String> acProblemTitles = {};
 
+    // 1. Real Solved Problems Feed (Exact timestamps + problem titles)
     try {
-      final query = '''
-      query getUserProfile(\$username: String!) {
-        matchedUser(username: \$username) {
-          userCalendar {
-            submissionCalendar
+      final acRes = await http
+          .get(Uri.parse('https://alfa-leetcode-api.onrender.com/$username/acSubmission?limit=50'))
+          .timeout(const Duration(seconds: 5));
+
+      if (acRes.statusCode == 200) {
+        final data = jsonDecode(acRes.body);
+        final List? acList = data['submission'];
+        if (acList != null) {
+          for (var item in acList) {
+            final title = item['title']?.toString() ?? 'LeetCode Problem';
+            final ts = int.tryParse(item['timestamp']?.toString() ?? '0') ?? 0;
+
+            if (ts > 0 && !acProblemTitles.contains(title)) {
+              acProblemTitles.add(title);
+              subs.add(
+                SubmissionModel(
+                  problemName: title,
+                  platform: 'LC',
+                  solvedAt: DateTime.fromMillisecondsSinceEpoch(ts * 1000),
+                  tags: ['LeetCode'],
+                ),
+              );
+            }
           }
         }
-        userContestRanking(username: \$username) {
-          rating
-        }
       }
-      ''';
+    } catch (_) {}
 
-      final res = await http.post(
-        Uri.parse('https://leetcode.com/graphql'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'query': query, 'variables': {'username': username}}),
-      );
+    // 2. Calendar Activity for Historical Heatmap Only (Avoids phantom "18h ago" duplicates)
+    try {
+      final calRes = await http
+          .get(Uri.parse('https://alfa-leetcode-api.onrender.com/$username/calendar'))
+          .timeout(const Duration(seconds: 5));
 
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final rawCalendar = data['data']?['matchedUser']?['userCalendar']?['submissionCalendar'];
-        
-        // Parse unix timestamps map from LeetCode calendar
+      if (calRes.statusCode == 200) {
+        final data = jsonDecode(calRes.body);
+        final rawCalendar = data['submissionCalendar'];
         if (rawCalendar != null) {
-          final Map<String, dynamic> calMap = jsonDecode(rawCalendar);
-          calMap.forEach((timestampStr, count) {
-            final ts = int.tryParse(timestampStr);
+          final Map<String, dynamic> calMap =
+              rawCalendar is String ? jsonDecode(rawCalendar) : rawCalendar;
+
+          final now = DateTime.now();
+          final todayMidnight = DateTime(now.year, now.month, now.day);
+
+          calMap.forEach((tsStr, count) {
+            final ts = int.tryParse(tsStr);
             if (ts != null) {
               final date = DateTime.fromMillisecondsSinceEpoch(ts * 1000);
-              for (int i = 0; i < (count as int); i++) {
-                subs.add(SubmissionModel(
-                  problemName: 'LeetCode Problem',
-                  platform: 'LC',
-                  solvedAt: date,
-                ));
+              final dateMidnight = DateTime(date.year, date.month, date.day);
+
+              // Skip current day to prevent overwriting exact AC timestamps
+              if (dateMidnight.isBefore(todayMidnight)) {
+                final solveCount = count is num ? count.toInt() : 1;
+                for (int i = 0; i < solveCount; i++) {
+                  subs.add(
+                    SubmissionModel(
+                      problemName: 'LeetCode Problem',
+                      platform: 'LC',
+                      solvedAt: date,
+                      tags: ['LeetCode'],
+                    ),
+                  );
+                }
               }
             }
           });
         }
+      }
+    } catch (_) {}
 
-        // Contest rating if user participates
-        final contestRating = data['data']?['userContestRanking']?['rating'];
-        if (contestRating != null) {
-          ratings.add(
-            RatingPointModel(
-              date: DateTime.now(),
-              rating: (contestRating as num).round(),
-              platform: 'LC',
-            ),
-          );
+    // 3. Contest History
+    try {
+      final contestRes = await http
+          .get(Uri.parse('https://alfa-leetcode-api.onrender.com/$username/contest'))
+          .timeout(const Duration(seconds: 5));
+
+      if (contestRes.statusCode == 200) {
+        final data = jsonDecode(contestRes.body);
+        final List? history = data['contestHistory'];
+        if (history != null) {
+          for (var item in history) {
+            if (item['attended'] == true && item['rating'] != null) {
+              final r = (item['rating'] as num).toInt();
+              final sec = item['contest']?['startTime'];
+              final timeMs =
+                  sec is num ? (sec * 1000).toInt() : DateTime.now().millisecondsSinceEpoch;
+              ratings.add(
+                RatingPointModel(
+                  date: DateTime.fromMillisecondsSinceEpoch(timeMs),
+                  rating: r,
+                  platform: 'LC',
+                ),
+              );
+            }
+          }
         }
       }
     } catch (_) {}
@@ -183,26 +250,69 @@ class ApiService {
     return PlatformDataBundle(submissions: subs, ratings: ratings);
   }
 
-  // 3. CodeChef Submissions + Ratings
+  // 3. CodeChef (Powered by Open REST API)
   static Future<PlatformDataBundle> fetchCodeChefData(String username) async {
     List<SubmissionModel> subs = [];
     List<RatingPointModel> ratings = [];
 
     try {
-      final res = await http.get(Uri.parse('https://www.codechef.com/users/$username'));
+      final res = await http.get(Uri.parse('https://codechef-api.vercel.app/handle/$username'));
       if (res.statusCode == 200) {
-        // Scrapes rating number from html
-        final ratingMatch = RegExp(r'class="rating-number">(\d+)<\/div>').firstMatch(res.body);
-        if (ratingMatch != null) {
-          final rating = int.tryParse(ratingMatch.group(1) ?? '0') ?? 0;
-          if (rating > 0) {
-            ratings.add(
-              RatingPointModel(
-                date: DateTime.now(),
-                rating: rating,
-                platform: 'CC',
-              ),
-            );
+        final data = jsonDecode(res.body);
+
+        // Current Rating
+        final currentRating = data['currentRating'];
+        if (currentRating != null && currentRating is num && currentRating > 0) {
+          ratings.add(
+            RatingPointModel(
+              date: DateTime.now(),
+              rating: currentRating.toInt(),
+              platform: 'CC',
+            ),
+          );
+        }
+
+        // Contest Rating Graph History (if present)
+        if (data['ratingData'] != null && data['ratingData'] is List) {
+          for (var item in data['ratingData']) {
+            final r = item['rating'];
+            final year = int.tryParse(item['year']?.toString() ?? '');
+            final month = int.tryParse(item['month']?.toString() ?? '');
+            final day = int.tryParse(item['day']?.toString() ?? '');
+
+            if (r != null && r is num && year != null && month != null && day != null) {
+              ratings.add(
+                RatingPointModel(
+                  date: DateTime(year, month, day),
+                  rating: r.toInt(),
+                  platform: 'CC',
+                ),
+              );
+            }
+          }
+        }
+
+        // Heatmap Activity
+        if (data['heatMap'] != null && data['heatMap'] is List) {
+          for (var item in data['heatMap']) {
+            final dateStr = item['date']?.toString();
+            final value = item['value'];
+            if (dateStr != null && value != null && value is num) {
+              final parsedDate = DateTime.tryParse(dateStr);
+              if (parsedDate != null) {
+                final count = value.toInt();
+                for (int i = 0; i < count; i++) {
+                  subs.add(
+                    SubmissionModel(
+                      problemName: 'CodeChef Problem',
+                      platform: 'CC',
+                      solvedAt: parsedDate,
+                      tags: ['CodeChef'],
+                    ),
+                  );
+                }
+              }
+            }
           }
         }
       }

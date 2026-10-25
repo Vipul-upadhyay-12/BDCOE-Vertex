@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:vertex/widgets/dashboard/topic_analytics_card.dart';
 import '../controllers/dashboard_controller.dart';
 import '../controllers/platform_controller.dart';
 import '../core/constants/app_colors.dart';
@@ -10,6 +11,8 @@ import '../widgets/dashboard/profile_hero_card.dart';
 import '../widgets/dashboard/quick_stats_grid.dart';
 import '../widgets/heatmap/combined_heatmap_card.dart';
 import '../widgets/charts/unified_rating_chart.dart';
+import '../widgets/dashboard/topic_analytics_card.dart';
+import '../widgets/dashboard/unified_recent_solves_card.dart';
 
 class DashboardView extends StatelessWidget {
   DashboardView({super.key});
@@ -38,8 +41,7 @@ class DashboardView extends StatelessWidget {
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppColors.primaryGreen),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryGreen),
                   )
                 : const Icon(Icons.refresh_rounded, color: Colors.white)),
             onPressed: () => dashboard.syncSubmissionsAndRatings(),
@@ -59,20 +61,29 @@ class DashboardView extends StatelessWidget {
           onRefresh: () => dashboard.syncSubmissionsAndRatings(),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                InactivityBanner(),
-                ProfileHeroCard(),
-                const SizedBox(height: 14),
-                QuickStatsGrid(),
-                const SizedBox(height: 18),
-                CombinedHeatmapCard(),
-                const SizedBox(height: 18),
-                UnifiedRatingChart(),
-                const SizedBox(height: 24),
-              ],
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1150),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    InactivityBanner(),
+                    ProfileHeroCard(),
+                    const SizedBox(height: 14),
+                    QuickStatsGrid(),
+                    const SizedBox(height: 18),
+                    CombinedHeatmapCard(),
+                    const SizedBox(height: 18),
+                    UnifiedRatingChart(),
+                    const SizedBox(height: 18),
+                    TopicAnalyticsCard(),
+                    const SizedBox(height: 18),
+                    UnifiedRecentSolvesCard(),
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
             ),
           ),
         );

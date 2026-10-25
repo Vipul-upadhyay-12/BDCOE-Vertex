@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import '../../controllers/dashboard_controller.dart';
 import '../../core/constants/app_colors.dart';
 
@@ -8,19 +9,18 @@ class CombinedHeatmapCard extends StatelessWidget {
 
   final DashboardController controller = Get.find<DashboardController>();
 
-  // Determine cell color based on problem count
   Color _getCellColor(int count) {
-    if (count == 0) return const Color(0xFF161B20); // Default dark cell
-    if (count <= 2) return const Color(0xFF064E3B); // Low activity
-    if (count <= 4) return const Color(0xFF059669); // Medium activity
-    if (count <= 7) return const Color(0xFF10B981); // High activity
-    return AppColors.primaryGreen;                   // Peak activity (glow emerald)
+    if (count == 0) return const Color(0xFF161B20);
+    if (count <= 2) return const Color(0xFF064E3B);
+    if (count <= 4) return const Color(0xFF059669);
+    if (count <= 7) return const Color(0xFF10B981);
+    return AppColors.primaryGreen;
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -31,17 +31,22 @@ class CombinedHeatmapCard extends StatelessWidget {
         final totalSolves = controller.totalProblemsSolved.value;
         final streak = controller.currentStreak.value;
 
-        // Build list of past 16 weeks (112 days) for comfortable mobile horizontal scrolling
+        // Generate 52 weeks (364 days) leading up to today
         final today = DateTime.now();
-        final days = List.generate(112, (index) {
-          final d = today.subtract(Duration(days: 111 - index));
+        final days = List.generate(364, (index) {
+          final d = today.subtract(Duration(days: 363 - index));
           return DateTime(d.year, d.month, d.day);
         });
+
+        List<List<DateTime>> weeks = [];
+        for (int i = 0; i < 52; i++) {
+          weeks.add(days.sublist(i * 7, (i + 1) * 7));
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: Title & Quick Stats
+            // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -49,7 +54,7 @@ class CombinedHeatmapCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "Activity Heatmap",
+                      "Annual Activity Heatmap",
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -58,11 +63,8 @@ class CombinedHeatmapCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "$totalSolves total submissions across linked accounts",
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
+                      "$totalSolves total submissions across all accounts",
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -79,7 +81,7 @@ class CombinedHeatmapCard extends StatelessWidget {
                           color: AppColors.leetCode, size: 16),
                       const SizedBox(width: 4),
                       Text(
-                        "$streak d",
+                        "$streak Days",
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -91,45 +93,95 @@ class CombinedHeatmapCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 20),
 
-            // Horizontal Scrollable Grid (7 rows = days of week)
+            // Horizontal Scrollable Container with Months and 52 Columns
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              reverse: true, // Start at today on the right
+              reverse: true, // Scroll to recent date on the right
               physics: const BouncingScrollPhysics(),
-              child: SizedBox(
-                height: 110,
-                child: GridView.builder(
-                  scrollDirection: Axis.horizontal,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 7, // 7 days a week
-                    mainAxisSpacing: 4,
-                    crossAxisSpacing: 4,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Month Labels Row
+                  Padding(
+                    padding: const EdgeInsets.only(left: 28, bottom: 6),
+                    child: Row(
+                      children: List.generate(12, (index) {
+                        final monthDate = DateTime(today.year, today.month - 11 + index);
+                        final label = DateFormat('MMM').format(monthDate);
+                        return Container(
+                          width: 68,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            label,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
                   ),
-                  itemCount: days.length,
-                  itemBuilder: (context, index) {
-                    final day = days[index];
-                    final count = heatmap[day] ?? 0;
 
-                    return Tooltip(
-                      message: "${day.day}/${day.month}/${day.year}: $count solves",
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: _getCellColor(count),
-                          borderRadius: BorderRadius.circular(3),
+                  // Days Grid with Left Day-of-Week Indicators
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Mon / Wed / Fri column
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8, top: 4),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: const [
+                            Text("Mon", style: TextStyle(color: AppColors.textSecondary, fontSize: 9)),
+                            SizedBox(height: 12),
+                            Text("Wed", style: TextStyle(color: AppColors.textSecondary, fontSize: 9)),
+                            SizedBox(height: 12),
+                            Text("Fri", style: TextStyle(color: AppColors.textSecondary, fontSize: 9)),
+                          ],
                         ),
                       ),
-                    );
-                  },
-                ),
+
+                      // 52 Columns of Weeks
+                      Row(
+                        children: weeks.map((week) {
+                          return Column(
+                            children: week.map((day) {
+                              final count = heatmap[day] ?? 0;
+                              final formatted = "${day.day} ${DateFormat('MMM yyyy').format(day)}";
+                              return Tooltip(
+                                message: "$formatted: $count solves",
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceElevated,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                textStyle: const TextStyle(color: Colors.white, fontSize: 11),
+                                child: Container(
+                                  width: 13,
+                                  height: 13,
+                                  margin: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: _getCellColor(count),
+                                    borderRadius: BorderRadius.circular(2.5),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
 
-            // Legend Scale (Less -> More)
+            // Legend
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -155,10 +207,7 @@ class CombinedHeatmapCard extends StatelessWidget {
       width: 10,
       height: 10,
       margin: const EdgeInsets.symmetric(horizontal: 2),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(2),
-      ),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
     );
   }
 }
