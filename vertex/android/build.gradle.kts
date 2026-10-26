@@ -15,19 +15,19 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
+
+// Force all subprojects to compile against SDK 36
 subprojects {
-    project.evaluationDependsOn(":app")
+    afterEvaluate {
+        if (project.plugins.hasPlugin("com.android.library")) {
+            val androidExt = project.extensions.findByName("android")
+            if (androidExt is com.android.build.gradle.BaseExtension) {
+                androidExt.compileSdkVersion(36)
+            }
+        }
+    }
 }
 
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
-}
-subprojects {
-    afterEvaluate {
-        plugins.withId("com.android.library") {
-            configure<com.android.build.gradle.LibraryExtension> {
-                compileSdk = 36
-            }
-        }
-    }
 }

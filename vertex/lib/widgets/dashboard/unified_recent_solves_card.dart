@@ -32,56 +32,62 @@ class UnifiedRecentSolvesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border, width: 1.2),
       ),
       child: Obx(() {
-        // Take up to 40 past problems (excluding fallback calendar entries)
-        final solves = dashboard.allSubmissions.take(40).toList();
+        final solves = dashboard.allSubmissions
+            .where((s) => s.problemName != "Solved LeetCode Problem")
+            .take(40)
+            .toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Row
+            // Responsive Header Row (Eliminates Right Overflow)
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.history_rounded, color: AppColors.primaryGreen, size: 20),
-                    const SizedBox(width: 8),
-                    const Text(
-                      "Recent Solved Feed",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                const Icon(Icons.history_rounded, color: AppColors.primaryGreen, size: 18),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    "Recent Solved Feed",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
-                  ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceElevated,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: AppColors.border),
                   ),
                   child: Text(
-                    "Showing ${solves.length} problems",
-                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                    "${solves.length} solved",
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
-            // Scrollable Container for 40 Problems
+            // Scrollable Container - Native Touch Scroll Enabled
             SizedBox(
-              height: 420,
+              height: 380,
               child: solves.isEmpty
                   ? const Center(
                       child: Text(
@@ -89,11 +95,14 @@ class UnifiedRecentSolvesCard extends StatelessWidget {
                         style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                       ),
                     )
-                  : Scrollbar(
+                  : RawScrollbar(
                       thumbVisibility: true,
+                      thickness: 4,
                       radius: const Radius.circular(8),
+                      thumbColor: AppColors.primaryGreen.withValues(alpha: 0.4),
                       child: ListView.separated(
-                        physics: const BouncingScrollPhysics(),
+                        // ClampingScrollPhysics allows natural scrolling inside nested SingleChildScrollView
+                        physics: const ClampingScrollPhysics(),
                         padding: const EdgeInsets.only(right: 8),
                         itemCount: solves.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
@@ -103,7 +112,7 @@ class UnifiedRecentSolvesCard extends StatelessWidget {
                           final timeStr = _formatTimeAgo(item.solvedAt);
 
                           return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
                               color: AppColors.surfaceElevated,
                               borderRadius: BorderRadius.circular(10),
@@ -113,7 +122,7 @@ class UnifiedRecentSolvesCard extends StatelessWidget {
                               children: [
                                 // Platform Tag Pill
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: platformColor.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(6),
@@ -122,15 +131,15 @@ class UnifiedRecentSolvesCard extends StatelessWidget {
                                   child: Text(
                                     item.platform,
                                     style: TextStyle(
-                                      fontSize: 11,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.w800,
                                       color: platformColor,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 10),
 
-                                // Problem Title & Tags
+                                // Problem Title
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,53 +149,19 @@ class UnifiedRecentSolvesCard extends StatelessWidget {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
-                                          fontSize: 13.5,
+                                          fontSize: 13,
                                           fontWeight: FontWeight.w600,
                                           color: Colors.white,
                                         ),
                                       ),
-                                      if (item.tags.isNotEmpty)
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 2),
-                                          child: Text(
-                                            item.tags.take(3).join(" • "),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              color: AppColors.textSecondary,
-                                            ),
-                                          ),
-                                        ),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-
-                                // Difficulty Pill (if CF rated)
-                                if (item.ratingOrDifficulty != null) ...[
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.surface,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: AppColors.border),
-                                    ),
-                                    child: Text(
-                                      item.ratingOrDifficulty!,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.primaryGreen,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                ],
+                                const SizedBox(width: 8),
 
                                 // Highlighted Time Badge
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: AppColors.background,
                                     borderRadius: BorderRadius.circular(6),
@@ -199,7 +174,7 @@ class UnifiedRecentSolvesCard extends StatelessWidget {
                                   child: Text(
                                     timeStr,
                                     style: TextStyle(
-                                      fontSize: 11,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                       color: timeStr.contains('h') || timeStr.contains('m')
                                           ? AppColors.primaryGreen

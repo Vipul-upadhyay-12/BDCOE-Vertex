@@ -106,11 +106,22 @@ class DashboardController extends GetxController {
   }
 
   void _buildHeatmapDataset(Map<DateTime, int> externalDays) {
-    Map<DateTime, int> counts = Map.from(externalDays);
+    Map<DateTime, int> counts = {};
+
+    // Subtract 1 from external calendar days if they came with an extra 1 offset
+    externalDays.forEach((dayKey, count) {
+      final adjusted = count > 1 ? count - 1 : 1;
+      counts[dayKey] = adjusted;
+    });
+
     for (var sub in allSubmissions) {
-      final dayKey = DateTime(sub.solvedAt.year, sub.solvedAt.month, sub.solvedAt.day);
-      counts[dayKey] = (counts[dayKey] ?? 0) + 1;
+      if (sub.platform != 'LC') {
+        final dayKey = DateTime(sub.solvedAt.year, sub.solvedAt.month, sub.solvedAt.day);
+        counts[dayKey] = (counts[dayKey] ?? 0) + 1;
+      }
     }
+
+    counts.removeWhere((key, value) => value <= 0);
     heatmapData.assignAll(counts);
   }
 

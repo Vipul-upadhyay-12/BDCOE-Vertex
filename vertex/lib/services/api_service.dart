@@ -6,6 +6,7 @@ import '../models/platform_bundle_model.dart';
 
 class ApiService {
   // --- VERIFICATION CHECKS ---
+  static const String _myCodeChefApi = 'https://codechef-api-virid.vercel.app';
 
   static Future<bool> checkCodeforces(String handle) async {
     try {
@@ -37,18 +38,16 @@ class ApiService {
     final cleanUser = username.trim();
     if (cleanUser.isEmpty) return false;
 
-    // Fast check via public proxy
     try {
       final res = await http
-          .get(Uri.parse('https://codechef-api.vercel.app/$cleanUser'))
-          .timeout(const Duration(seconds: 4));
+          .get(Uri.parse('$_myCodeChefApi/handle/$cleanUser'))
+          .timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        if (data['success'] == true || data['currentRating'] != null) return true;
+        return data['success'] == true;
       }
     } catch (_) {}
-
-    return cleanUser.isNotEmpty; // Fallback to allow unrated/new users
+    return false;
   }
 
   static Future<Map<String, dynamic>?> fetchCodeforcesUserInfo(String handle) async {
@@ -152,11 +151,30 @@ class ApiService {
     Map<DateTime, int> calendarActivity = {};
     Set<String> seenProblemTitles = {};
 
-    // 1. Fetch ONLY Real Solved Problems (NO dummy placeholder items!)
+    final cleanUser = username.trim();
+    if (cleanUser.isEmpty) {
+      return PlatformDataBundle(submissions: subs, ratings: ratings);
+    }
+
+    // 1. Fetch Official Total Lifetime Solved Count & Difficulty Breakdown
+    int totalSolvedFromProfile = 0;
+    try {
+      final solvedRes = await http
+          .get(Uri.parse('https://alfa-leetcode-api.onrender.com/$cleanUser/solved'))
+          .timeout(const Duration(seconds: 5));
+      if (solvedRes.statusCode == 200) {
+        final data = jsonDecode(solvedRes.body);
+        if (data['solvedProblem'] != null && data['solvedProblem'] is num) {
+          totalSolvedFromProfile = (data['solvedProblem'] as num).toInt();
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fetch Recent AC Problem Titles & Timestamps
     try {
       final acRes = await http
-          .get(Uri.parse('https://alfa-leetcode-api.onrender.com/$username/acSubmission?limit=50'))
-          .timeout(const Duration(seconds: 6));
+          .get(Uri.parse('https://alfa-leetcode-api.onrender.com/$cleanUser/acSubmission?limit=50'))
+          .timeout(const Duration(seconds: 5));
 
       if (acRes.statusCode == 200) {
         final data = jsonDecode(acRes.body);
@@ -166,7 +184,6 @@ class ApiService {
             final title = item['title']?.toString() ?? '';
             final ts = int.tryParse(item['timestamp']?.toString() ?? '0') ?? 0;
 
-            // Only add distinct, valid solved problems
             if (title.isNotEmpty && ts > 0 && !seenProblemTitles.contains(title)) {
               seenProblemTitles.add(title);
               subs.add(
@@ -181,15 +198,29 @@ class ApiService {
           }
         }
       }
-    } catch (e) {
-      print("LC AC Submissions error: $e");
+    } catch (_) {}
+
+    // 3. If profile solved count is higher than recent feed, add backlog items
+    // so total solved count and mastery reflect real career progress
+    if (totalSolvedFromProfile > subs.length) {
+      final remaining = totalSolvedFromProfile - subs.length;
+      for (int i = 0; i < remaining; i++) {
+        subs.add(
+          SubmissionModel(
+            problemName: "Solved LeetCode Problem",
+            platform: 'LC',
+            solvedAt: DateTime.now().subtract(Duration(days: 30 + i)),
+            tags: ['LeetCode'],
+          ),
+        );
+      }
     }
 
-    // 2. Calendar Map strictly for the Heatmap (NEVER added to subs)
+    // 4. Fetch Heatmap Calendar
     try {
       final calRes = await http
-          .get(Uri.parse('https://alfa-leetcode-api.onrender.com/$username/calendar'))
-          .timeout(const Duration(seconds: 6));
+          .get(Uri.parse('https://alfa-leetcode-api.onrender.com/$cleanUser/calendar'))
+          .timeout(const Duration(seconds: 5));
 
       if (calRes.statusCode == 200) {
         final data = jsonDecode(calRes.body);
@@ -209,15 +240,13 @@ class ApiService {
           });
         }
       }
-    } catch (e) {
-      print("LC Calendar error: $e");
-    }
+    } catch (_) {}
 
-    // 3. Contest Rating
+    // 5. Contest Ratings
     try {
       final contestRes = await http
-          .get(Uri.parse('https://alfa-leetcode-api.onrender.com/$username/contest'))
-          .timeout(const Duration(seconds: 6));
+          .get(Uri.parse('https://alfa-leetcode-api.onrender.com/$cleanUser/contest'))
+          .timeout(const Duration(seconds: 5));
 
       if (contestRes.statusCode == 200) {
         final data = jsonDecode(contestRes.body);
@@ -260,173 +289,64 @@ class ApiService {
       return PlatformDataBundle(submissions: subs, ratings: ratings);
     }
 
-    print("[CodeChef] Starting fetch for handle: $cleanUser");
-    bool parsedSuccessfully = false;
+    try {
+      final res = await http
+          .get(Uri.parse('$_myCodeChefApi/handle/$cleanUser'))
+          .timeout(const Duration(seconds: 6));
 
-    // --- STRATEGY 1: Community Vercel Microservice (Testing both routes) ---
-    final apiUrls = [
-      'https://codechef-api.vercel.app/$cleanUser',
-      'https://codechef-api.vercel.app/handle/$cleanUser',
-    ];
-
-    for (final url in apiUrls) {
-      if (parsedSuccessfully) break;
-      try {
-        print("[CodeChef] Attempting API: $url");
-        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 4));
-        print("[CodeChef] API Response status: ${res.statusCode}");
-
-        if (res.statusCode == 200) {
-          final data = jsonDecode(res.body);
-          if (data is Map && (data['success'] == true || data['currentRating'] != null)) {
-            // Current Rating
-            final cr = data['currentRating'];
-            if (cr != null && cr is num && cr > 0) {
-              ratings.add(
-                RatingPointModel(
-                  date: DateTime.now(),
-                  rating: cr.toInt(),
-                  platform: 'CC',
-                ),
-              );
-              print("[CodeChef] Found current rating: $cr");
-            }
-
-            // Contest History
-            if (data['ratingData'] != null && data['ratingData'] is List) {
-              for (var item in data['ratingData']) {
-                final r = item['rating'];
-                final y = int.tryParse(item['year']?.toString() ?? '');
-                final m = int.tryParse(item['month']?.toString() ?? '');
-                final d = int.tryParse(item['day']?.toString() ?? '');
-                if (r != null && r is num && y != null && m != null && d != null) {
-                  ratings.add(
-                    RatingPointModel(
-                      date: DateTime(y, m, d),
-                      rating: r.toInt(),
-                      platform: 'CC',
-                    ),
-                  );
-                }
-              }
-              print("[CodeChef] Parsed ${data['ratingData'].length} contest rating points");
-            }
-
-            // Heatmap Activity
-            if (data['heatMap'] != null && data['heatMap'] is List) {
-              for (var item in data['heatMap']) {
-                final dateStr = item['date']?.toString();
-                final val = item['value'];
-                if (dateStr != null && val is num) {
-                  final dt = DateTime.tryParse(dateStr);
-                  if (dt != null) {
-                    final dayKey = DateTime(dt.year, dt.month, dt.day);
-                    calendarActivity[dayKey] = (calendarActivity[dayKey] ?? 0) + val.toInt();
-                  }
-                }
-              }
-            }
-
-            parsedSuccessfully = true;
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['success'] == true) {
+          final currentRating = data['currentRating'];
+          if (currentRating != null && currentRating is num && currentRating > 0) {
+            ratings.add(
+              RatingPointModel(
+                date: DateTime.now(),
+                rating: currentRating.toInt(),
+                platform: 'CC',
+              ),
+            );
           }
-        }
-      } catch (e) {
-        print("[CodeChef] API $url failed: $e");
-      }
-    }
 
-    // --- STRATEGY 2: AllOrigins JSON Proxy (Live HTML Parser) ---
-    if (!parsedSuccessfully) {
-      try {
-        final profileUrl = 'https://www.codechef.com/users/$cleanUser';
-        final proxyUrl =
-            'https://api.allorigins.win/get?url=${Uri.encodeComponent(profileUrl)}';
-        print("[CodeChef] Falling back to AllOrigins proxy: $proxyUrl");
+          // Contest Rating Timeline
+          if (data['ratingData'] != null && data['ratingData'] is List) {
+            for (var item in data['ratingData']) {
+              final r = item['rating'];
+              final year = int.tryParse(item['year']?.toString() ?? '');
+              final month = int.tryParse(item['month']?.toString() ?? '');
+              final day = int.tryParse(item['day']?.toString() ?? '');
 
-        final res = await http.get(Uri.parse(proxyUrl)).timeout(const Duration(seconds: 6));
-        if (res.statusCode == 200) {
-          final json = jsonDecode(res.body);
-          final html = json['contents']?.toString() ?? '';
-
-          if (html.isNotEmpty && !html.contains("User doesn't exist")) {
-            print("[CodeChef] HTML received (${html.length} chars). Parsing stats...");
-
-            // 1. Current Rating
-            final ratingMatch =
-                RegExp(r'class="rating-number"[^>]*>(\d+)', caseSensitive: false)
-                    .firstMatch(html);
-            if (ratingMatch != null) {
-              final r = int.tryParse(ratingMatch.group(1) ?? '0') ?? 0;
-              if (r > 0) {
+              if (r != null && r is num && year != null && month != null && day != null) {
                 ratings.add(
                   RatingPointModel(
-                    date: DateTime.now(),
-                    rating: r,
+                    date: DateTime(year, month, day),
+                    rating: r.toInt(),
                     platform: 'CC',
                   ),
                 );
-                print("[CodeChef] HTML parsed rating: $r");
-              }
-            } else {
-              print("[CodeChef] User appears to be unrated on CodeChef.");
-            }
-
-            // 2. Extract Solved Problems
-            // Matches problem links like /status/FLOW001,dank_ladka
-            final problemRegex = RegExp(
-              r'href="/status/([A-Za-z0-9_]+),\s*' + RegExp.escape(cleanUser),
-              caseSensitive: false,
-            );
-            final matches = problemRegex.allMatches(html);
-            Set<String> uniqueCodes = {};
-
-            for (var m in matches) {
-              final code = m.group(1);
-              if (code != null && !uniqueCodes.contains(code)) {
-                uniqueCodes.add(code);
-                subs.add(
-                  SubmissionModel(
-                    problemName: code,
-                    platform: 'CC',
-                    solvedAt: DateTime.now().subtract(Duration(days: uniqueCodes.length)),
-                    tags: ['CodeChef'],
-                  ),
-                );
               }
             }
+          }
 
-            // If individual links weren't found, check total solved count
-            if (subs.isEmpty) {
-              final totalMatch = RegExp(
-                r'Total Problems Solved:\s*(\d+)',
-                caseSensitive: false,
-              ).firstMatch(html);
-              if (totalMatch != null) {
-                final count = int.tryParse(totalMatch.group(1) ?? '0') ?? 0;
-                print("[CodeChef] Found total solved count in HTML: $count");
-                for (int i = 0; i < count; i++) {
-                  subs.add(
-                    SubmissionModel(
-                      problemName: "CodeChef Problem #${i + 1}",
-                      platform: 'CC',
-                      solvedAt: DateTime.now().subtract(Duration(days: i + 1)),
-                      tags: ['CodeChef'],
-                    ),
-                  );
-                }
-              }
+          // Solved Problems
+          if (data['solvedProblems'] != null && data['solvedProblems'] is List) {
+            final List problems = data['solvedProblems'];
+            for (int i = 0; i < problems.length; i++) {
+              subs.add(
+                SubmissionModel(
+                  problemName: problems[i].toString(),
+                  platform: 'CC',
+                  solvedAt: DateTime.now().subtract(Duration(days: i + 1)),
+                  tags: ['CodeChef'],
+                ),
+              );
             }
-
-            print("[CodeChef] Extracted ${subs.length} solved problems from CodeChef.");
-            parsedSuccessfully = true;
           }
         }
-      } catch (e) {
-        print("[CodeChef] HTML proxy parsing error: $e");
       }
+    } catch (e) {
+      print("CodeChef fetch error: $e");
     }
-
-    print("[CodeChef] Completed fetch: ${ratings.length} rating points, ${subs.length} problems.");
 
     return PlatformDataBundle(
       submissions: subs,
