@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:vertex/views/main_shell_view.dart';
 import 'core/constants/app_colors.dart';
 import 'controllers/platform_controller.dart';
 import 'controllers/auth_controller.dart';
@@ -33,7 +34,7 @@ class MyApp extends StatelessWidget {
       getPages: [
         GetPage(name: '/auth', page: () => AuthView()),
         GetPage(name: '/link-handles', page: () => LinkHandlesView()),
-        GetPage(name: '/dashboard', page: () => DashboardView()),
+        GetPage(name: '/dashboard', page: () => MainShellView()),
       ],
     );
   }
