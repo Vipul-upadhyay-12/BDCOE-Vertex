@@ -40,10 +40,7 @@ class UnifiedRecentSolvesCard extends StatelessWidget {
       ),
       child: Obx(() {
         // Take up to 40 past problems (excluding fallback calendar entries)
-        final solves = dashboard.allSubmissions
-            .where((s) => s.problemName != 'LeetCode Problem')
-            .take(40)
-            .toList();
+        final solves = dashboard.allSubmissions.take(40).toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -14,6 +14,11 @@ class DashboardController extends GetxController {
   var ratingHistory = <RatingPointModel>[].obs;
   var heatmapData = <DateTime, int>{}.obs;
 
+  // Platform-specific metrics
+  var cfSolvedCount = 0.obs;
+  var lcSolvedCount = 0.obs;
+  var lcRating = 0.obs;
+
   // Topic & Type counts
   var topicCounts = <String, int>{}.obs;
   var distinctTypesCount = 0.obs;
@@ -28,11 +33,8 @@ class DashboardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // Auto-sync whenever handles change
     ever(platform.savedCf, (_) => syncSubmissionsAndRatings());
     ever(platform.savedLc, (_) => syncSubmissionsAndRatings());
-    ever(platform.savedCc, (_) => syncSubmissionsAndRatings());
-
     syncSubmissionsAndRatings();
   }
 
@@ -41,12 +43,17 @@ class DashboardController extends GetxController {
 
     List<SubmissionModel> aggregatedSubmissions = [];
     List<RatingPointModel> aggregatedRatings = [];
+    Map<DateTime, int> externalCalendarDays = {};
+
+    int cfCount = 0;
+    int lcCount = 0;
 
     // 1. Codeforces
     if (platform.savedCf.value.isNotEmpty) {
       final cfData = await ApiService.fetchCodeforcesData(platform.savedCf.value);
       aggregatedSubmissions.addAll(cfData.submissions);
       aggregatedRatings.addAll(cfData.ratings);
+      cfCount = cfData.submissions.length;
     }
 
     // 2. LeetCode
@@ -54,16 +61,23 @@ class DashboardController extends GetxController {
       final lcData = await ApiService.fetchLeetCodeData(platform.savedLc.value);
       aggregatedSubmissions.addAll(lcData.submissions);
       aggregatedRatings.addAll(lcData.ratings);
+      lcCount = lcData.submissions.length;
+
+      // Extract LC Contest Rating if available
+      final lcRatings = lcData.ratings.where((r) => r.platform == 'LC').toList();
+      if (lcRatings.isNotEmpty) {
+        lcRating.value = lcRatings.last.rating;
+      }
+
+      lcData.calendarMap.forEach((day, count) {
+        externalCalendarDays[day] = (externalCalendarDays[day] ?? 0) + count;
+      });
     }
 
-    // 3. CodeChef
-    if (platform.savedCc.value.isNotEmpty) {
-      final ccData = await ApiService.fetchCodeChefData(platform.savedCc.value);
-      aggregatedSubmissions.addAll(ccData.submissions);
-      aggregatedRatings.addAll(ccData.ratings);
-    }
+    cfSolvedCount.value = cfCount;
+    lcSolvedCount.value = lcCount;
 
-    // STRICT SORTING: Newest solved problems first
+    // Strict chronological sort for problem feed
     aggregatedSubmissions.sort((a, b) => b.solvedAt.compareTo(a.solvedAt));
 
     allSubmissions.assignAll(aggregatedSubmissions);
@@ -71,7 +85,7 @@ class DashboardController extends GetxController {
     totalProblemsSolved.value = aggregatedSubmissions.length;
 
     _calculatePeakRating();
-    _buildHeatmapDataset();
+    _buildHeatmapDataset(externalCalendarDays);
     _computeTopics();
     _evaluateInactivityAndStreak();
 
@@ -91,8 +105,8 @@ class DashboardController extends GetxController {
     peakPlatform.value = peak.platform;
   }
 
-  void _buildHeatmapDataset() {
-    Map<DateTime, int> counts = {};
+  void _buildHeatmapDataset(Map<DateTime, int> externalDays) {
+    Map<DateTime, int> counts = Map.from(externalDays);
     for (var sub in allSubmissions) {
       final dayKey = DateTime(sub.solvedAt.year, sub.solvedAt.month, sub.solvedAt.day);
       counts[dayKey] = (counts[dayKey] ?? 0) + 1;
@@ -115,23 +129,42 @@ class DashboardController extends GetxController {
   }
 
   void _evaluateInactivityAndStreak() {
-    if (allSubmissions.isEmpty) {
+    if (allSubmissions.isEmpty && heatmapData.isEmpty) {
       daysInactive.value = 0;
       currentStreak.value = 0;
       return;
     }
 
-    final latestSolve = allSubmissions.first.solvedAt;
-    final now = DateTime.now();
+    DateTime? latestActive;
+    if (allSubmissions.isNotEmpty) {
+      latestActive = allSubmissions.first.solvedAt;
+    }
 
-    daysInactive.value = now.difference(latestSolve).inDays;
+    if (heatmapData.isNotEmpty) {
+      final latestCalendarDay = heatmapData.keys.reduce((a, b) => a.isAfter(b) ? a : b);
+      if (latestActive == null || latestCalendarDay.isAfter(latestActive)) {
+        latestActive = latestCalendarDay;
+      }
+    }
+
+    final now = DateTime.now();
+    daysInactive.value = latestActive != null ? now.difference(latestActive).inDays : 0;
 
     int streak = 0;
     DateTime checkDate = DateTime(now.year, now.month, now.day);
-    while (heatmapData.containsKey(checkDate) && heatmapData[checkDate]! > 0) {
+
+    if (!heatmapData.containsKey(checkDate) || (heatmapData[checkDate] ?? 0) == 0) {
+      final yesterday = checkDate.subtract(const Duration(days: 1));
+      if (heatmapData.containsKey(yesterday) && (heatmapData[yesterday] ?? 0) > 0) {
+        checkDate = yesterday;
+      }
+    }
+
+    while (heatmapData.containsKey(checkDate) && (heatmapData[checkDate] ?? 0) > 0) {
       streak++;
       checkDate = checkDate.subtract(const Duration(days: 1));
     }
+
     currentStreak.value = streak;
   }
 }

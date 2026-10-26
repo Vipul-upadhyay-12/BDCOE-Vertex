@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:vertex/widgets/dashboard/topic_analytics_card.dart';
 import '../controllers/dashboard_controller.dart';
 import '../controllers/platform_controller.dart';
 import '../core/constants/app_colors.dart';
 import '../widgets/navigation/app_top_bar.dart';
 import '../widgets/dashboard/profile_drawer.dart';
 import '../widgets/dashboard/inactivity_banner.dart';
-import '../widgets/dashboard/profile_hero_card.dart';
-import '../widgets/dashboard/quick_stats_grid.dart';
+import '../widgets/dashboard/platform_cards_grid.dart';
 import '../widgets/heatmap/combined_heatmap_card.dart';
 import '../widgets/charts/unified_rating_chart.dart';
 import '../widgets/dashboard/topic_analytics_card.dart';
@@ -69,16 +67,24 @@ class DashboardView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     InactivityBanner(),
-                    ProfileHeroCard(),
-                    const SizedBox(height: 14),
-                    QuickStatsGrid(),
+                    
+                    // 1. Separate Cards per Connected Profile + Metrics
+                    PlatformCardsGrid(),
                     const SizedBox(height: 18),
+
+                    // 2. Mixed 52-Week Activity Heatmap (All platforms unified)
                     CombinedHeatmapCard(),
                     const SizedBox(height: 18),
+
+                    // 3. Multi-Line Rating Trajectory Graph
                     UnifiedRatingChart(),
                     const SizedBox(height: 18),
+
+                    // 4. Topic Distribution & Mastery
                     TopicAnalyticsCard(),
                     const SizedBox(height: 18),
+
+                    // 5. Recent Chronological Solves Feed
                     UnifiedRecentSolvesCard(),
                     const SizedBox(height: 32),
                   ],
