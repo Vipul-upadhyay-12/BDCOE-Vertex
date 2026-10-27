@@ -21,6 +21,9 @@ class DashboardController extends GetxController {
   var cfSolvedCount = 0.obs;
   var lcSolvedCount = 0.obs;
   var lcRating = 0.obs;
+  var ccRating = 0.obs;
+  var ccStars = '1★'.obs;
+  var ccSolvedCount = 0.obs;
 
   // Topic & Type counts
   var topicCounts = <String, int>{}.obs;
@@ -36,15 +39,23 @@ class DashboardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // Reactively refresh data whenever any handle changes
     ever(platform.savedCf, (_) => syncSubmissionsAndRatings());
     ever(platform.savedLc, (_) => syncSubmissionsAndRatings());
+    ever(platform.savedCc, (_) => syncSubmissionsAndRatings());
+    ever(platform.savedAc, (_) => syncSubmissionsAndRatings());
     syncSubmissionsAndRatings();
   }
 
   Future<void> syncSubmissionsAndRatings() async {
     isSyncing.value = true;
     print("[CPPRO] Starting full sync...");
-    print("[CPPRO] Handles -> CF: '${platform.savedCf.value}', LC: '${platform.savedLc.value}', CC: '${platform.savedCc.value}'");
+    print(
+      "[CPPRO] Handles -> CF: '${platform.savedCf.value}', "
+      "LC: '${platform.savedLc.value}', "
+      "CC: '${platform.savedCc.value}', "
+      "AC: '${platform.savedAc.value}'",
+    );
 
     List<SubmissionModel> aggregatedSubmissions = [];
     List<RatingPointModel> aggregatedRatings = [];
@@ -52,10 +63,6 @@ class DashboardController extends GetxController {
 
     int cfCount = 0;
     int lcCount = 0;
-    int ccCount =0;
-    var ccRating = 0.obs;
-    var ccStars = 1.obs;
-    var ccSolvedCount = 0.obs;
 
     // 1. Codeforces
     if (platform.savedCf.value.isNotEmpty) {
@@ -65,8 +72,8 @@ class DashboardController extends GetxController {
       cfCount = cfData.submissions.length;
     }
 
+    // 2. AtCoder
     if (platform.savedAc.value.isNotEmpty) {
-      // 1. Fetch & Add Submissions (Heatmap + Solves count)
       final acSubs = await ApiService.fetchAtCoderSubmissions(platform.savedAc.value);
       aggregatedSubmissions.addAll(acSubs);
 
@@ -75,12 +82,11 @@ class DashboardController extends GetxController {
         externalCalendarDays[day] = (externalCalendarDays[day] ?? 0) + 1;
       }
 
-      // 2. Fetch & Add Contest Rating History
       final acRatings = await ApiService.fetchAtCoderRatingHistory(platform.savedAc.value);
-      ratingHistory.addAll(acRatings); // <-- Uses your existing ratingHistory list
+      aggregatedRatings.addAll(acRatings);
     }
 
-    // 2. LeetCode
+    // 3. LeetCode
     if (platform.savedLc.value.isNotEmpty) {
       final lcData = await ApiService.fetchLeetCodeData(platform.savedLc.value);
       aggregatedSubmissions.addAll(lcData.submissions);
@@ -97,8 +103,7 @@ class DashboardController extends GetxController {
       });
     }
 
-    // 3. CodeChef
-    // CodeChef Pipeline
+    // 4. CodeChef
     if (platform.savedCc.value.isNotEmpty) {
       final ccData = await ApiService.fetchCodeChefData(platform.savedCc.value);
       aggregatedSubmissions.addAll(ccData.submissions);
@@ -107,16 +112,25 @@ class DashboardController extends GetxController {
 
       final ccRatings = ccData.ratings.where((r) => r.platform == 'CC').toList();
       if (ccRatings.isNotEmpty) {
-        ccRating.value = ccRatings.last.rating;
+        final r = ccRatings.last.rating;
+        ccRating.value = r;
+
         // Calculate stars based on CodeChef rating brackets
-        final r = ccRating.value;
-        if (r >= 2500) ccStars.value = 7;
-        else if (r >= 2200) ccStars.value = 6;
-        else if (r >= 2000) ccStars.value = 5;
-        else if (r >= 1800) ccStars.value = 4;
-        else if (r >= 1600) ccStars.value = 3;
-        else if (r >= 1400) ccStars.value = 2;
-        else ccStars.value = 1;
+        if (r >= 2500) {
+          ccStars.value = "7★";
+        } else if (r >= 2200) {
+          ccStars.value = "6★";
+        } else if (r >= 2000) {
+          ccStars.value = "5★";
+        } else if (r >= 1800) {
+          ccStars.value = "4★";
+        } else if (r >= 1600) {
+          ccStars.value = "3★";
+        } else if (r >= 1400) {
+          ccStars.value = "2★";
+        } else {
+          ccStars.value = "1★";
+        }
       }
 
       ccData.calendarMap.forEach((day, count) {
@@ -124,11 +138,10 @@ class DashboardController extends GetxController {
       });
     }
 
-
     cfSolvedCount.value = cfCount;
     lcSolvedCount.value = lcCount;
 
-    // Chronological order for problem feed
+    // Chronological order for problem feed (newest first)
     aggregatedSubmissions.sort((a, b) => b.solvedAt.compareTo(a.solvedAt));
 
     allSubmissions.assignAll(aggregatedSubmissions);
@@ -148,29 +161,30 @@ class DashboardController extends GetxController {
     isSyncing.value = false;
     print("[CPPRO] Full sync complete! Total submissions in feed: ${allSubmissions.length}");
 
-    // --- HOME WIDGET UPDATE (INSIDE THE METHOD) ---
-    final threshold24h = DateTime.now().subtract(const Duration(hours: 24));
-    final count24h = allSubmissions.where((s) => s.solvedAt.isAfter(threshold24h)).length;
-
+    // --- HOME WIDGET LIVE UPDATE ---
+    ContestModel? nextContest;
     ContestModel? nextAlarm;
     try {
       final cc = Get.find<ContestController>();
-      
-      // Match against cc.allContests and cc.activeReminderIds
+      final now = DateTime.now();
+
+      // Next upcoming contest overall
+      final upcoming = cc.allContests.where((c) => c.startTime.isAfter(now)).toList()
+        ..sort((a, b) => a.startTime.compareTo(b.startTime));
+      if (upcoming.isNotEmpty) nextContest = upcoming.first;
+
+      // Next scheduled alarm
       final reminded = cc.allContests
-          .where((c) =>
-              cc.activeReminderIds.contains(c.notificationId) &&
-              c.startTime.isAfter(DateTime.now()))
+          .where((c) => cc.activeReminderIds.contains(c.notificationId) && c.startTime.isAfter(now))
           .toList()
         ..sort((a, b) => a.startTime.compareTo(b.startTime));
-
       if (reminded.isNotEmpty) nextAlarm = reminded.first;
     } catch (_) {}
 
     await WidgetSyncService.updateHomeScreenWidget(
       streakDays: currentStreak.value,
-      solvesIn24h: count24h,
-      nextContest: nextAlarm,
+      nextContest: nextContest,
+      latestReminder: nextAlarm,
     );
   }
 
@@ -190,7 +204,6 @@ class DashboardController extends GetxController {
   void _buildHeatmapDataset(Map<DateTime, int> externalDays) {
     Map<DateTime, int> counts = {};
 
-    // Subtract 1 from external calendar days if they came with an extra 1 offset
     externalDays.forEach((dayKey, count) {
       final adjusted = count > 1 ? count - 1 : 1;
       counts[dayKey] = adjusted;

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:vertex/controllers/dashboard_controller.dart';
+import 'package:vertex/services/widget_sync_service.dart';
 import '../core/constants/app_colors.dart';
 import '../models/contest_model.dart';
 import '../services/api_service.dart';
@@ -29,7 +31,10 @@ class ContestController extends GetxController {
     allContests.assignAll(results);
     await syncReminders();
     isLoading.value = false;
+    await triggerWidgetRefresh(); // <-- Updates widget as soon as fresh rounds are fetched
   }
+
+
 
   List<ContestModel> get filteredContests {
     if (selectedFilter.value == 'ALL') return allContests;
@@ -38,6 +43,31 @@ class ContestController extends GetxController {
 
   void setFilter(String filter) {
     selectedFilter.value = filter;
+  }
+
+  Future<void> triggerWidgetRefresh() async {
+    try {
+      final dashboard = Get.find<DashboardController>();
+      final now = DateTime.now();
+
+      // Find the absolute next upcoming contest
+      final upcoming = allContests.where((c) => c.startTime.isAfter(now)).toList()
+        ..sort((a, b) => a.startTime.compareTo(b.startTime));
+      final nextContest = upcoming.isNotEmpty ? upcoming.first : null;
+
+      // Find the next scheduled reminder
+      final reminded = allContests
+          .where((c) => activeReminderIds.contains(c.notificationId) && c.startTime.isAfter(now))
+          .toList()
+        ..sort((a, b) => a.startTime.compareTo(b.startTime));
+      final nextReminder = reminded.isNotEmpty ? reminded.first : null;
+
+      await WidgetSyncService.updateHomeScreenWidget(
+        streakDays: dashboard.currentStreak.value,
+        nextContest: nextContest,
+        latestReminder: nextReminder,
+      );
+    } catch (_) {}
   }
 
   Future<void> toggleReminder(ContestModel contest) async {
@@ -83,5 +113,6 @@ class ContestController extends GetxController {
         );
       }
     }
+    await triggerWidgetRefresh();
   }
 }

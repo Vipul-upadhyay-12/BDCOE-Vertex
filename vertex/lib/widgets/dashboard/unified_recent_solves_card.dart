@@ -96,7 +96,7 @@ class UnifiedRecentSolvesCard extends StatelessWidget {
                       ),
                     )
                   : RawScrollbar(
-                      thumbVisibility: true,
+                      thumbVisibility: false,
                       thickness: 4,
                       radius: const Radius.circular(8),
                       thumbColor: AppColors.primaryGreen.withValues(alpha: 0.4),

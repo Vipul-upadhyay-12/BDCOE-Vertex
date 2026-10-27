@@ -5,77 +5,116 @@
     android:layout_height="match_parent"
     android:background="#161B22"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:padding="14dp">
 
-    <!-- Header: Streak & 24h Solves -->
-    <LinearLayout
+    <!-- TOP ROW: RelativeLayout pushes Streak to Left, Countdown to Right -->
+    <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:layout_height="wrap_content">
 
+        <!-- Streak on Left -->
         <TextView
             android:id="@+id/widget_streak"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
             android:text="🔥 0 Days"
             android:textColor="#FF6D00"
             android:textSize="13sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/widget_solves"
+        <!-- Next Contest Tag & Countdown on Right -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="0 Solved (24h)"
-            android:textColor="#10B981"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-    </LinearLayout>
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-    <!-- Divider: Replaced forbidden <View> with valid <ImageView> -->
-    <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"
-        android:src="#30363D" />
+            <TextView
+                android:id="@+id/widget_next_platform"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="#21262D"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:text="NEXT"
+                android:textColor="#8B949E"
+                android:textSize="9sp"
+                android:textStyle="bold" />
 
-    <!-- Next Contest Header -->
+            <TextView
+                android:id="@+id/widget_next_countdown"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="--:--"
+                android:textColor="#10B981"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </RelativeLayout>
+
+    <!-- Next Contest Name (Always Displays) -->
     <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="NEXT CONTEST"
-        android:textColor="#8B949E"
-        android:textSize="9sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/widget_contest_name"
+        android:id="@+id/widget_next_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:text="No Upcoming Alarms"
+        android:layout_marginTop="4dp"
+        android:text="Loading upcoming contest..."
         android:singleLine="true"
         android:ellipsize="end"
         android:textColor="#FFFFFF"
         android:textSize="12sp"
         android:textStyle="bold" />
 
-    <!-- Countdown Tag -->
+    <!-- Thin Divider -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
+        android:background="#30363D" />
+
+    <!-- BOTTOM ROW: RelativeLayout for Scheduled Alarm -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:text="ALARM SET"
+            android:textColor="#F59E0B"
+            android:textSize="9sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_reminder_countdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:text=""
+            android:textColor="#F59E0B"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
     <TextView
-        android:id="@+id/widget_countdown"
-        android:layout_width="wrap_content"
+        android:id="@+id/widget_reminder_name"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:background="#21262D"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:paddingTop="3dp"
-        android:paddingBottom="3dp"
-        android:text="--:--"
-        android:textColor="#10B981"
-        android:textSize="10sp"
-        android:textStyle="bold" />
+        android:layout_marginTop="2dp"
+        android:text="No Reminder Scheduled"
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:textColor="#8B949E"
+        android:textSize="11sp" />
 </LinearLayout>
