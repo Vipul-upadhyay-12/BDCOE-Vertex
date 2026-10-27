@@ -8,7 +8,7 @@ import '../widgets/custom_text_field.dart';
 class AuthView extends StatelessWidget {
   AuthView({super.key});
 
-  final auth = Get.put(AuthController());
+  final auth = Get.find<AuthController>();
   final emailCtrl = TextEditingController();
   final passCtrl = TextEditingController();
 
@@ -65,7 +65,7 @@ class AuthView extends StatelessWidget {
                         style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                       ),
                       GestureDetector(
-                        onTap: auth.toggleMode,
+                        onTap: () => auth.isSignUp.toggle(),
                         child: Text(
                           auth.isSignUp.value ? "Sign In" : "Sign Up",
                           style: const TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold, fontSize: 13),

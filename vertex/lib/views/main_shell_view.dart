@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:vertex/views/practice_view.dart';
 import '../controllers/navigation_controller.dart';
 import '../core/constants/app_colors.dart';
 import 'dashboard_view.dart';
@@ -14,7 +15,7 @@ class MainShellView extends StatelessWidget {
 
   final List<Widget> _pages = [
     DashboardView(),
-    const ProblemSuggestionsView(),
+    const PracticeView(),
     const ContestCalendarView(),
     const GoalTrackerView(),
   ];

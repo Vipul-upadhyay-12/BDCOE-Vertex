@@ -40,6 +40,8 @@ class DashboardController extends GetxController {
 
   Future<void> syncSubmissionsAndRatings() async {
     isSyncing.value = true;
+    print("[CPPRO] Starting full sync...");
+    print("[CPPRO] Handles -> CF: '${platform.savedCf.value}', LC: '${platform.savedLc.value}', CC: '${platform.savedCc.value}'");
 
     List<SubmissionModel> aggregatedSubmissions = [];
     List<RatingPointModel> aggregatedRatings = [];
@@ -47,6 +49,10 @@ class DashboardController extends GetxController {
 
     int cfCount = 0;
     int lcCount = 0;
+    int ccCount =0;
+    var ccRating = 0.obs;
+    var ccStars = 1.obs;
+    var ccSolvedCount = 0.obs;
 
     // 1. Codeforces
     if (platform.savedCf.value.isNotEmpty) {
@@ -63,7 +69,6 @@ class DashboardController extends GetxController {
       aggregatedRatings.addAll(lcData.ratings);
       lcCount = lcData.submissions.length;
 
-      // Extract LC Contest Rating if available
       final lcRatings = lcData.ratings.where((r) => r.platform == 'LC').toList();
       if (lcRatings.isNotEmpty) {
         lcRating.value = lcRatings.last.rating;
@@ -74,10 +79,38 @@ class DashboardController extends GetxController {
       });
     }
 
+    // 3. CodeChef
+    // CodeChef Pipeline
+    if (platform.savedCc.value.isNotEmpty) {
+      final ccData = await ApiService.fetchCodeChefData(platform.savedCc.value);
+      aggregatedSubmissions.addAll(ccData.submissions);
+      aggregatedRatings.addAll(ccData.ratings);
+      ccSolvedCount.value = ccData.submissions.length;
+
+      final ccRatings = ccData.ratings.where((r) => r.platform == 'CC').toList();
+      if (ccRatings.isNotEmpty) {
+        ccRating.value = ccRatings.last.rating;
+        // Calculate stars based on CodeChef rating brackets
+        final r = ccRating.value;
+        if (r >= 2500) ccStars.value = 7;
+        else if (r >= 2200) ccStars.value = 6;
+        else if (r >= 2000) ccStars.value = 5;
+        else if (r >= 1800) ccStars.value = 4;
+        else if (r >= 1600) ccStars.value = 3;
+        else if (r >= 1400) ccStars.value = 2;
+        else ccStars.value = 1;
+      }
+
+      ccData.calendarMap.forEach((day, count) {
+        externalCalendarDays[day] = (externalCalendarDays[day] ?? 0) + count;
+      });
+    }
+
+
     cfSolvedCount.value = cfCount;
     lcSolvedCount.value = lcCount;
 
-    // Strict chronological sort for problem feed
+    // Chronological order for problem feed
     aggregatedSubmissions.sort((a, b) => b.solvedAt.compareTo(a.solvedAt));
 
     allSubmissions.assignAll(aggregatedSubmissions);
@@ -89,7 +122,13 @@ class DashboardController extends GetxController {
     _computeTopics();
     _evaluateInactivityAndStreak();
 
+    // Force reactive refresh
+    allSubmissions.refresh();
+    ratingHistory.refresh();
+    heatmapData.refresh();
+
     isSyncing.value = false;
+    print("[CPPRO] Full sync complete! Total submissions in feed: ${allSubmissions.length}");
   }
 
   void _calculatePeakRating() {
