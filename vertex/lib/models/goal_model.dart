@@ -1,44 +1,60 @@
-import 'package:vertex/models/submission_model.dart';
+enum GoalType { ratingTarget, topicSprint, dailySolves }
 
 class GoalModel {
   final String id;
   final String title;
-  final String topicTag;         // e.g. 'dp', 'graphs'
-  final int targetCount;         // e.g. 15
-  final DateTime startDate;      // Exact timestamp when goal was activated
-  final DateTime? deadline;      // Optional cutoff date
-  final bool onlyCountFromStart; // true = new solves only, false = all-time
+  final GoalType type;
+  final String platform; // 'CF', 'CC', 'LC', 'AC', 'ALL'
+  final int targetValue;
+  final String? topicTag;
+  final DateTime startDate;
+  final DateTime? deadline;
+  final bool onlyCountFromStart;
 
   GoalModel({
     required this.id,
     required this.title,
-    required this.topicTag,
-    required this.targetCount,
+    required this.type,
+    required this.platform,
+    required this.targetValue,
+    this.topicTag,
     required this.startDate,
     this.deadline,
     this.onlyCountFromStart = true,
   });
 
-  /// Dynamically computes progress against your live submission stream
-  int calculateCurrentProgress(List<SubmissionModel> allSubmissions) {
-    return allSubmissions.where((sub) {
-      // 1. Tag match check
-      final hasTag = sub.tags.any(
-        (t) => t.toLowerCase().contains(topicTag.toLowerCase()),
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'type': type.name,
+        'platform': platform,
+        'targetValue': targetValue,
+        'topicTag': topicTag,
+        'startDate': startDate.toIso8601String(),
+        'deadline': deadline?.toIso8601String(),
+        'onlyCountFromStart': onlyCountFromStart,
+      };
+
+  factory GoalModel.fromJson(Map<String, dynamic> json) => GoalModel(
+        id: json['id'] ?? '',
+        title: json['title'] ?? '',
+        type: GoalType.values.firstWhere(
+          (e) => e.name == json['type'],
+          orElse: () => GoalType.topicSprint,
+        ),
+        platform: json['platform'] ?? 'ALL',
+        targetValue: json['targetValue'] ?? 0,
+        topicTag: json['topicTag'],
+        startDate: DateTime.tryParse(json['startDate'] ?? '') ?? DateTime.now(),
+        deadline: json['deadline'] != null ? DateTime.tryParse(json['deadline']) : null,
+        onlyCountFromStart: json['onlyCountFromStart'] ?? true,
       );
-      if (!hasTag) return false;
 
-      // 2. Time anchor check
-      if (onlyCountFromStart && sub.solvedAt.isBefore(startDate)) {
-        return false;
-      }
+  bool get isExpired => deadline != null && DateTime.now().isAfter(deadline!);
 
-      // 3. Deadline check (if any)
-      if (deadline != null && sub.solvedAt.isAfter(deadline!)) {
-        return false;
-      }
-
-      return true;
-    }).length;
+  int get daysRemaining {
+    if (deadline == null) return 0;
+    final diff = deadline!.difference(DateTime.now()).inDays;
+    return diff < 0 ? 0 : diff;
   }
 }

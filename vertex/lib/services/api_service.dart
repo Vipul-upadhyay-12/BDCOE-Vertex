@@ -563,4 +563,41 @@ class ApiService {
       calendarMap: calendarActivity,
     );
   }
+
+  /// Fetches verified AtCoder submissions via Kenkoooo public API
+  static Future<List<SubmissionModel>> fetchAtCoderSubmissions(String handle) async {
+    final cleanHandle = handle.trim();
+    if (cleanHandle.isEmpty) return [];
+    List<SubmissionModel> submissions = [];
+
+    try {
+      final url = 'https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${Uri.encodeComponent(cleanHandle)}&from_second=0';
+      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+
+      if (res.statusCode == 200) {
+        final List list = jsonDecode(res.body);
+
+        for (var item in list) {
+          final result = (item['result'] ?? '').toString().toUpperCase();
+          if (result == 'AC') {
+            final epochSec = (item['epoch_second'] as num?)?.toInt() ?? 0;
+            final problemId = item['problem_id']?.toString() ?? 'AtCoder Problem';
+            final parts = problemId.split('_');
+            final tag = parts.isNotEmpty ? parts[0].toUpperCase() : 'AtCoder';
+
+            submissions.add(
+              SubmissionModel(
+                problemName: problemId,
+                platform: 'AC',
+                solvedAt: DateTime.fromMillisecondsSinceEpoch(epochSec * 1000),
+                tags: ['AtCoder', tag],
+              ),
+            );
+          }
+        }
+      }
+    } catch (_) {}
+
+    return submissions;
+  }
 }

@@ -62,6 +62,17 @@ class DashboardController extends GetxController {
       cfCount = cfData.submissions.length;
     }
 
+    // AtCoder Pipeline (Kenkoooo)
+    if (platform.savedAc.value.isNotEmpty) {
+      final acSubs = await ApiService.fetchAtCoderSubmissions(platform.savedAc.value);
+      aggregatedSubmissions.addAll(acSubs);
+
+      for (var sub in acSubs) {
+        final day = DateTime(sub.solvedAt.year, sub.solvedAt.month, sub.solvedAt.day);
+        externalCalendarDays[day] = (externalCalendarDays[day] ?? 0) + 1;
+      }
+    }
+
     // 2. LeetCode
     if (platform.savedLc.value.isNotEmpty) {
       final lcData = await ApiService.fetchLeetCodeData(platform.savedLc.value);

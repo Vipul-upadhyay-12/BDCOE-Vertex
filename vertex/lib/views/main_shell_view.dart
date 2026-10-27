@@ -17,7 +17,7 @@ class MainShellView extends StatelessWidget {
     DashboardView(),
     const PracticeView(),
     const ContestCalendarView(),
-    const GoalTrackerView(),
+    GoalTrackerView(),
   ];
 
   @override
