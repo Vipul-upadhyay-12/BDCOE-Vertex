@@ -53,6 +53,10 @@ class PlatformController extends GetxController {
     cfRating.value = _box.read('cf_rating') ?? 0;
     cfRank.value = _box.read('cf_rank') ?? 'Unrated';
     cfAvatar.value = _box.read('cf_avatar') ?? '';
+
+    acRating.value = _box.read('ac_rating') ?? 0;
+    acRank.value = _box.read('ac_rank') ?? 'Unrated';
+    
   }
 
   void _saveToDisk() {
@@ -203,5 +207,20 @@ class PlatformController extends GetxController {
       title: 'Profile Removed',
       message: '$platform profile has been disconnected.',
     );
+  }
+  // AtCoder Metadata
+  var acRating = 0.obs;
+  var acRank = 'Unrated'.obs;
+
+  String getAtCoderColorTitle(int r) {
+    if (r >= 2800) return 'Red';
+    if (r >= 2400) return 'Orange';
+    if (r >= 2000) return 'Yellow';
+    if (r >= 1600) return 'Blue';
+    if (r >= 1200) return 'Cyan';
+    if (r >= 800) return 'Green';
+    if (r >= 400) return 'Brown';
+    if (r > 0) return 'Gray';
+    return 'Unrated';
   }
 }

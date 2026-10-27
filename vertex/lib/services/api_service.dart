@@ -572,7 +572,7 @@ class ApiService {
 
     try {
       final url = 'https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions?user=${Uri.encodeComponent(cleanHandle)}&from_second=0';
-      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
 
       if (res.statusCode == 200) {
         final List list = jsonDecode(res.body);
@@ -599,5 +599,39 @@ class ApiService {
     } catch (_) {}
 
     return submissions;
+  }
+
+  /// 2. Fetches AtCoder rating progression and current live rating
+  static Future<List<RatingPointModel>> fetchAtCoderRatingHistory(String handle) async {
+    final cleanHandle = handle.trim();
+    if (cleanHandle.isEmpty) return [];
+    List<RatingPointModel> points = [];
+
+    try {
+      final url = 'https://atcoder.jp/users/${Uri.encodeComponent(cleanHandle)}/history/json';
+      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        final List list = jsonDecode(res.body);
+        for (var item in list) {
+          final bool isRated = item['IsRated'] == true;
+          if (isRated) {
+            final int newRating = (item['NewRating'] as num?)?.toInt() ?? 0;
+            final String rawDate = item['EndTime'] ?? '';
+            final parsedDate = DateTime.tryParse(rawDate) ?? DateTime.now();
+
+            points.add(
+              RatingPointModel(
+                rating: newRating,
+                date: parsedDate,
+                platform: 'AC',
+              ),
+            );
+          }
+        }
+      }
+    } catch (_) {}
+
+    return points;
   }
 }

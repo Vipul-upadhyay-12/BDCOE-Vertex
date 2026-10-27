@@ -1,4 +1,7 @@
 import 'package:get/get.dart';
+import 'package:vertex/controllers/contest_controller.dart';
+import 'package:vertex/models/contest_model.dart';
+import 'package:vertex/services/widget_sync_service.dart';
 import '../models/submission_model.dart';
 import '../models/rating_point_model.dart';
 import '../controllers/platform_controller.dart';
@@ -62,8 +65,8 @@ class DashboardController extends GetxController {
       cfCount = cfData.submissions.length;
     }
 
-    // AtCoder Pipeline (Kenkoooo)
     if (platform.savedAc.value.isNotEmpty) {
+      // 1. Fetch & Add Submissions (Heatmap + Solves count)
       final acSubs = await ApiService.fetchAtCoderSubmissions(platform.savedAc.value);
       aggregatedSubmissions.addAll(acSubs);
 
@@ -71,6 +74,10 @@ class DashboardController extends GetxController {
         final day = DateTime(sub.solvedAt.year, sub.solvedAt.month, sub.solvedAt.day);
         externalCalendarDays[day] = (externalCalendarDays[day] ?? 0) + 1;
       }
+
+      // 2. Fetch & Add Contest Rating History
+      final acRatings = await ApiService.fetchAtCoderRatingHistory(platform.savedAc.value);
+      ratingHistory.addAll(acRatings); // <-- Uses your existing ratingHistory list
     }
 
     // 2. LeetCode
@@ -140,6 +147,31 @@ class DashboardController extends GetxController {
 
     isSyncing.value = false;
     print("[CPPRO] Full sync complete! Total submissions in feed: ${allSubmissions.length}");
+
+    // --- HOME WIDGET UPDATE (INSIDE THE METHOD) ---
+    final threshold24h = DateTime.now().subtract(const Duration(hours: 24));
+    final count24h = allSubmissions.where((s) => s.solvedAt.isAfter(threshold24h)).length;
+
+    ContestModel? nextAlarm;
+    try {
+      final cc = Get.find<ContestController>();
+      
+      // Match against cc.allContests and cc.activeReminderIds
+      final reminded = cc.allContests
+          .where((c) =>
+              cc.activeReminderIds.contains(c.notificationId) &&
+              c.startTime.isAfter(DateTime.now()))
+          .toList()
+        ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+      if (reminded.isNotEmpty) nextAlarm = reminded.first;
+    } catch (_) {}
+
+    await WidgetSyncService.updateHomeScreenWidget(
+      streakDays: currentStreak.value,
+      solvesIn24h: count24h,
+      nextContest: nextAlarm,
+    );
   }
 
   void _calculatePeakRating() {

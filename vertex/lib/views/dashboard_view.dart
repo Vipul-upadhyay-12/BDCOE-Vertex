@@ -26,7 +26,7 @@ class DashboardView extends StatelessWidget {
       backgroundColor: AppColors.background,
       drawer: ProfileDrawer(),
       appBar: AppTopBar(
-        title: "CPPRO",
+        title: "Vertex",
         showBack: false,
         leading: IconButton(
           icon: const Icon(Icons.menu_rounded, color: Colors.white),

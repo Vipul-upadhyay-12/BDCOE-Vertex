@@ -165,7 +165,7 @@ class ProfileDrawer extends StatelessWidget {
                     child: const Icon(Icons.terminal_rounded, color: AppColors.primaryGreen, size: 22),
                   ),
                   const SizedBox(width: 12),
-                  const Text("CPPRO Profile Manager",
+                  const Text("Profile Manager",
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                 ],
               ),

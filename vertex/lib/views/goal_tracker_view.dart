@@ -29,68 +29,74 @@ class GoalTrackerView extends StatelessWidget {
           ),
         ],
       ),
-      body: Obx(() {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 850),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // 1. Primary Target Tier Card
-                  _buildNorthStarCard(context),
-                  const SizedBox(height: 18),
+      body: SafeArea(
+        child: Obx(() {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 850),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 1. Primary Target Tier Card
+                    _buildNorthStarCard(context),
+                    const SizedBox(height: 18),
 
-                  // 2. Daily & Weekly Habit Loops
-                  _buildHabitRow(),
-                  const SizedBox(height: 22),
+                    // 2. Daily & Weekly Habit Loops
+                    _buildHabitRow(),
+                    const SizedBox(height: 22),
 
-                  // 3. Active Sprints & Quests
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "Active Sprints & Quests",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => _showAddGoalSheet(context),
-                        icon: const Icon(Icons.add, size: 16, color: AppColors.primaryGreen),
-                        label: const Text(
-                          "New Sprint",
-                          style: TextStyle(fontSize: 12, color: AppColors.primaryGreen),
+                    // 3. Active Sprints & Quests Header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Active Sprints & Quests",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  if (goalsController.goals.isEmpty)
-                    _buildEmptyGoals()
-                  else
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: goalsController.goals.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final g = goalsController.goals[index];
-                        return _buildGoalCard(g);
-                      },
+                        TextButton.icon(
+                          onPressed: () => _showAddGoalSheet(context),
+                          icon: const Icon(Icons.add, size: 16, color: AppColors.primaryGreen),
+                          label: const Text(
+                            "New Sprint",
+                            style: TextStyle(fontSize: 12, color: AppColors.primaryGreen),
+                          ),
+                        ),
+                      ],
                     ),
-                  const SizedBox(height: 30),
-                ],
+                    const SizedBox(height: 8),
+
+                    // 4. Goals List / Empty State
+                    if (goalsController.goals.isEmpty)
+                      _buildEmptyGoals()
+                    else
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: goalsController.goals.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final g = goalsController.goals[index];
+                          return _buildGoalCard(g);
+                        },
+                      ),
+                    const SizedBox(height: 30),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      }),
+          );
+        }),
+      ),
     );
   }
 
   Widget _buildNorthStarCard(BuildContext context) {
-    // Current rating based on chosen target platform
     int currentRating = 1200;
     final plat = goalsController.targetPlatform.value;
 
@@ -110,7 +116,7 @@ class GoalTrackerView extends StatelessWidget {
     final progress = (currentRating / target).clamp(0.0, 1.0);
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -137,13 +143,13 @@ class GoalTrackerView extends StatelessWidget {
                       color: AppColors.primaryGreen.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.flag_rounded, color: AppColors.primaryGreen, size: 18),
+                    child: const Icon(Icons.flag_rounded, color: AppColors.primaryGreen, size: 16),
                   ),
                   const SizedBox(width: 8),
                   const Text(
                     "PRIMARY TARGET TIER",
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 10.5,
                       fontWeight: FontWeight.w800,
                       color: AppColors.primaryGreen,
                       letterSpacing: 0.5,
@@ -153,9 +159,17 @@ class GoalTrackerView extends StatelessWidget {
               ),
               InkWell(
                 onTap: () => _showEditTargetRating(context),
-                child: const Text(
-                  "Choose Platform / Target",
-                  style: TextStyle(fontSize: 12, color: AppColors.primaryGreen, decoration: TextDecoration.underline),
+                borderRadius: BorderRadius.circular(6),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Text(
+                    "Edit Target",
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.primaryGreen,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -163,7 +177,9 @@ class GoalTrackerView extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             "$plat Target: $target",
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
           ),
           const SizedBox(height: 4),
           Text(
@@ -177,7 +193,7 @@ class GoalTrackerView extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: progress,
-              minHeight: 10,
+              minHeight: 8,
               backgroundColor: AppColors.surfaceElevated,
               valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
             ),
@@ -202,38 +218,42 @@ class GoalTrackerView extends StatelessWidget {
     final todayStart = DateTime(now.year, now.month, now.day);
     final todaySolves = dashController.allSubmissions.where((s) => s.solvedAt.isAfter(todayStart)).length;
 
-    return Row(
-      children: [
-        Expanded(
-          child: _habitCard(
-            title: "Today's Solves",
-            val: "$todaySolves / 2",
-            subtitle: todaySolves >= 2 ? "Goal Met! 🎯" : "${2 - todaySolves} more to target",
-            icon: Icons.check_circle_outline_rounded,
-            color: todaySolves >= 2 ? AppColors.primaryGreen : AppColors.leetCode,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _habitCard(
-            title: "Daily Streak",
-            val: "${dashController.currentStreak.value} Days",
-            subtitle: "Non-zero practice",
-            icon: Icons.local_fire_department_rounded,
-            color: Colors.deepOrangeAccent,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _habitCard(
-            title: "Weekly Upsolve",
-            val: "Pending",
-            subtitle: "1 round missed task",
-            icon: Icons.bolt_rounded,
-            color: Colors.amberAccent,
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Row(
+          children: [
+            Expanded(
+              child: _habitCard(
+                title: "Today's Solves",
+                val: "$todaySolves / 2",
+                subtitle: todaySolves >= 2 ? "Goal Met! 🎯" : "${2 - todaySolves} left",
+                icon: Icons.check_circle_outline_rounded,
+                color: todaySolves >= 2 ? AppColors.primaryGreen : AppColors.leetCode,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _habitCard(
+                title: "Daily Streak",
+                val: "${dashController.currentStreak.value}d",
+                subtitle: "Active habit",
+                icon: Icons.local_fire_department_rounded,
+                color: Colors.deepOrangeAccent,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _habitCard(
+                title: "Upsolve",
+                val: "Pending",
+                subtitle: "Last contest",
+                icon: Icons.bolt_rounded,
+                color: Colors.amberAccent,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -245,7 +265,7 @@ class GoalTrackerView extends StatelessWidget {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
@@ -254,17 +274,28 @@ class GoalTrackerView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(height: 8),
-          Text(val, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+          Icon(icon, size: 17, color: color),
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              val,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(title, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
+          ),
           const SizedBox(height: 1),
           Text(
             subtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500),
+            style: TextStyle(fontSize: 9.5, color: color, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -291,14 +322,14 @@ class GoalTrackerView extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
                 decoration: BoxDecoration(
                   color: AppColors.primaryGreen.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   g.topicTag?.toUpperCase() ?? g.platform,
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGreen),
+                  style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: AppColors.primaryGreen),
                 ),
               ),
               const SizedBox(width: 8),
@@ -307,13 +338,16 @@ class GoalTrackerView extends StatelessWidget {
                   g.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
               ),
               if (g.deadline != null)
-                Text(
-                  "${g.daysRemaining}d left",
-                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                Padding(
+                  padding: const EdgeInsets.only(left: 6, right: 4),
+                  child: Text(
+                    "${g.daysRemaining}d left",
+                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  ),
                 ),
               IconButton(
                 icon: const Icon(Icons.close_rounded, size: 16, color: AppColors.textSecondary),
@@ -339,9 +373,13 @@ class GoalTrackerView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "Progress: $progress / ${g.targetValue} solved (${g.platform})",
-                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+              Expanded(
+                child: Text(
+                  "Progress: $progress / ${g.targetValue} solved (${g.platform})",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                ),
               ),
               Text(
                 isDone ? "Completed! ✓" : "${(ratio * 100).toInt()}%",
@@ -360,36 +398,42 @@ class GoalTrackerView extends StatelessWidget {
 
   Widget _buildEmptyGoals() {
     return Container(
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
       alignment: Alignment.center,
       child: Column(
         children: const [
-          Icon(Icons.track_changes_rounded, size: 38, color: AppColors.textSecondary),
+          Icon(Icons.track_changes_rounded, size: 36, color: AppColors.textSecondary),
           SizedBox(height: 10),
           Text(
-            "No active sprints right now.\nCreate a topic sprint like 'Solve 10 DP Problems' to get started.",
+            "No active sprints right now.\nTap 'New Sprint' to set a topic target like DP or Graphs.",
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
           ),
         ],
       ),
     );
   }
 
-  /// Choose target rating directly from connected platforms or custom input
   void _showEditTargetRating(BuildContext context) {
-    // Current live ratings
     final cfRating = platformController.cfRating.value > 0 ? platformController.cfRating.value : 1200;
     final ccRatings = dashController.ratingHistory.where((r) => r.platform == 'CC').toList();
     final ccRating = ccRatings.isNotEmpty ? ccRatings.last.rating : 1400;
-    final lcRating = dashController.lcRating.value > 0 ? dashController.lcRating.value : 1500;
 
     String chosenPlat = goalsController.targetPlatform.value;
     final textController = TextEditingController(text: '${goalsController.targetRating.value}');
 
     Get.bottomSheet(
+      isScrollControlled: true,
       Container(
-        padding: const EdgeInsets.all(20),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.82,
+        ),
+        padding: EdgeInsets.only(
+          left: 18,
+          right: 18,
+          top: 18,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 18,
+        ),
         decoration: const BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -402,60 +446,60 @@ class GoalTrackerView extends StatelessWidget {
                 "Select Rating Target",
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               const Text(
-                "Choose a platform milestone based on your current rating:",
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                "Choose a platform milestone or enter a custom target:",
+                style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-              // Quick Tier Presets
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _presetChip("Codeforces: 1400 (Specialist)", () {
+                  _presetChip("CF: 1400 (Specialist)", () {
                     goalsController.updateRatingTarget(1400, "Codeforces");
                     Get.back();
                   }),
-                  _presetChip("Codeforces: 1600 (Expert)", () {
+                  _presetChip("CF: 1600 (Expert)", () {
                     goalsController.updateRatingTarget(1600, "Codeforces");
                     Get.back();
                   }),
-                  _presetChip("CodeChef: 1600 (3★)", () {
+                  _presetChip("CC: 1600 (3★)", () {
                     goalsController.updateRatingTarget(1600, "CodeChef");
                     Get.back();
                   }),
-                  _presetChip("CodeChef: 1800 (4★)", () {
+                  _presetChip("CC: 1800 (4★)", () {
                     goalsController.updateRatingTarget(1800, "CodeChef");
                     Get.back();
                   }),
-                  _presetChip("LeetCode: 1850 (Knight)", () {
+                  _presetChip("LC: 1850 (Knight)", () {
                     goalsController.updateRatingTarget(1850, "LeetCode");
                     Get.back();
                   }),
-                  _presetChip("Codeforces: +100 from current ($cfRating -> ${cfRating + 100})", () {
+                  _presetChip("CF: +100 ($cfRating -> ${cfRating + 100})", () {
                     goalsController.updateRatingTarget(cfRating + 100, "Codeforces");
                     Get.back();
                   }),
-                  _presetChip("CodeChef: +150 from current ($ccRating -> ${ccRating + 150})", () {
+                  _presetChip("CC: +150 ($ccRating -> ${ccRating + 150})", () {
                     goalsController.updateRatingTarget(ccRating + 150, "CodeChef");
                     Get.back();
                   }),
                 ],
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               const Divider(color: AppColors.border),
               const SizedBox(height: 12),
 
-              const Text("Or Set Custom Rating Target", style: TextStyle(fontSize: 13, color: Colors.white70)),
-              const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: chosenPlat.contains('CodeChef')
                     ? 'CodeChef'
                     : chosenPlat.contains('LeetCode')
                         ? 'LeetCode'
-                        : 'Codeforces',
+                        : chosenPlat.contains('AtCoder')
+                            ? 'AtCoder'
+                            : 'Codeforces',
+                isExpanded: true,
                 dropdownColor: AppColors.surfaceElevated,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(labelText: "Platform"),
@@ -492,7 +536,7 @@ class GoalTrackerView extends StatelessWidget {
                   }
                   Get.back();
                 },
-                child: const Text("Save Custom Target",
+                child: const Text("Save Target",
                     style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
               ),
             ],
@@ -507,7 +551,7 @@ class GoalTrackerView extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6.5),
         decoration: BoxDecoration(
           color: AppColors.surfaceElevated,
           borderRadius: BorderRadius.circular(8),
@@ -515,13 +559,13 @@ class GoalTrackerView extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 11.5, color: Colors.white),
+          style: const TextStyle(fontSize: 11, color: Colors.white),
         ),
       ),
     );
   }
 
-  /// Create practice sprint modal with friendly platform names
+  /// Create practice sprint modal with adaptive layout for all phone sizes
   void _showAddGoalSheet(BuildContext context) {
     final titleCtrl = TextEditingController();
     final countCtrl = TextEditingController(text: "10");
@@ -530,121 +574,159 @@ class GoalTrackerView extends StatelessWidget {
     String selectedPlat = 'All Platforms';
 
     Get.bottomSheet(
+      isScrollControlled: true,
       Container(
-        padding: const EdgeInsets.all(20),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.88,
+        ),
+        padding: EdgeInsets.only(
+          left: 18,
+          right: 18,
+          top: 18,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 18,
+        ),
         decoration: const BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                "Create Practice Sprint",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: titleCtrl,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: "Sprint Name",
-                  hintText: "e.g. DP & Tree Traversals",
-                  labelStyle: TextStyle(color: AppColors.textSecondary),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: selectedPlat,
-                      dropdownColor: AppColors.surfaceElevated,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(labelText: "Platform"),
-                      items: const [
-                        DropdownMenuItem(value: 'All Platforms', child: Text("All Platforms")),
-                        DropdownMenuItem(value: 'Codeforces', child: Text("Codeforces")),
-                        DropdownMenuItem(value: 'LeetCode', child: Text("LeetCode")),
-                        DropdownMenuItem(value: 'CodeChef', child: Text("CodeChef")),
-                        DropdownMenuItem(value: 'AtCoder', child: Text("AtCoder")),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) selectedPlat = v;
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: selectedTag,
-                      dropdownColor: AppColors.surfaceElevated,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(labelText: "Topic Tag"),
-                      items: ['dp', 'graphs', 'trees', 'greedy', 'binary search', 'math', 'number theory']
-                          .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) selectedTag = v;
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: countCtrl,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(labelText: "Target Solves"),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: daysCtrl,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(labelText: "Duration (Days)"),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryGreen,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onPressed: () {
-                  final title = titleCtrl.text.trim().isEmpty ? "Topic Sprint" : titleCtrl.text.trim();
-                  final target = int.tryParse(countCtrl.text) ?? 10;
-                  final days = int.tryParse(daysCtrl.text) ?? 14;
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 360;
 
-                  goalsController.addGoal(
-                    title: title,
-                    type: GoalType.topicSprint,
-                    platform: selectedPlat,
-                    targetValue: target,
-                    topicTag: selectedTag,
-                    deadline: DateTime.now().add(Duration(days: days)),
-                    onlyCountFromStart: true,
-                  );
-                  Get.back();
-                },
-                child: const Text(
-                  "Activate Sprint",
-                  style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    "Create Practice Sprint",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: titleCtrl,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: "Sprint Name",
+                      hintText: "e.g. DP & Graphs Drill",
+                      labelStyle: TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Adaptive Platform & Topic Selector
+                  if (isNarrow) ...[
+                    _buildPlatformDropdown(selectedPlat, (v) => selectedPlat = v),
+                    const SizedBox(height: 10),
+                    _buildTopicDropdown(selectedTag, (v) => selectedTag = v),
+                  ] else ...[
+                    Row(
+                      children: [
+                        Expanded(child: _buildPlatformDropdown(selectedPlat, (v) => selectedPlat = v)),
+                        const SizedBox(width: 10),
+                        Expanded(child: _buildTopicDropdown(selectedTag, (v) => selectedTag = v)),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+
+                  // Count & Duration Inputs
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: countCtrl,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(labelText: "Target Solves"),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: daysCtrl,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(labelText: "Duration (Days)"),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGreen,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () {
+                      final title = titleCtrl.text.trim().isEmpty ? "Topic Sprint" : titleCtrl.text.trim();
+                      final target = int.tryParse(countCtrl.text) ?? 10;
+                      final days = int.tryParse(daysCtrl.text) ?? 14;
+
+                      goalsController.addGoal(
+                        title: title,
+                        type: GoalType.topicSprint,
+                        platform: selectedPlat,
+                        targetValue: target,
+                        topicTag: selectedTag,
+                        deadline: DateTime.now().add(Duration(days: days)),
+                        onlyCountFromStart: true,
+                      );
+                      Get.back();
+                    },
+                    child: const Text(
+                      "Activate Sprint",
+                      style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPlatformDropdown(String current, ValueChanged<String> onChanged) {
+    return DropdownButtonFormField<String>(
+      value: current,
+      isExpanded: true,
+      dropdownColor: AppColors.surfaceElevated,
+      style: const TextStyle(color: Colors.white, fontSize: 13),
+      decoration: const InputDecoration(labelText: "Platform"),
+      items: const [
+        DropdownMenuItem(value: 'All Platforms', child: Text("All", overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'Codeforces', child: Text("Codeforces", overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'LeetCode', child: Text("LeetCode", overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'CodeChef', child: Text("CodeChef", overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'AtCoder', child: Text("AtCoder", overflow: TextOverflow.ellipsis)),
+      ],
+      onChanged: (v) {
+        if (v != null) onChanged(v);
+      },
+    );
+  }
+
+  Widget _buildTopicDropdown(String current, ValueChanged<String> onChanged) {
+    return DropdownButtonFormField<String>(
+      value: current,
+      isExpanded: true,
+      dropdownColor: AppColors.surfaceElevated,
+      style: const TextStyle(color: Colors.white, fontSize: 13),
+      decoration: const InputDecoration(labelText: "Topic Tag"),
+      items: const [
+        DropdownMenuItem(value: 'dp', child: Text("DP", overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'graphs', child: Text("Graphs", overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'trees', child: Text("Trees", overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'greedy', child: Text("Greedy", overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'binary search', child: Text("Binary Search", overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'math', child: Text("Math", overflow: TextOverflow.ellipsis)),
+        DropdownMenuItem(value: 'number theory', child: Text("Num Theory", overflow: TextOverflow.ellipsis)),
+      ],
+      onChanged: (v) {
+        if (v != null) onChanged(v);
+      },
     );
   }
 }

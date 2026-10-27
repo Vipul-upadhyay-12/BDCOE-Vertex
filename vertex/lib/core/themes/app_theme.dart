@@ -128,6 +128,11 @@ class AppTheme {
         color: AppColors.primaryGreen,
       ),
 
+      scrollbarTheme: const ScrollbarThemeData(
+        thumbVisibility: WidgetStatePropertyAll(false),
+        interactive: true,
+      ),
+
       dividerTheme: const DividerThemeData(
         color: AppColors.border,
         thickness: 1,

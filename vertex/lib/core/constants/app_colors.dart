@@ -14,6 +14,7 @@ class AppColors {
   static const Color codeforces = Color(0xFF3B82F6);
   static const Color leetCode = Color(0xFFF59E0B);
   static const Color codeChef = Color(0xFFD97706);
+  static const Color atCoder = Color(0xFFFF5722);
 
   static const Color textPrimary = Color(0xFFF3F4F6);
   static const Color textSecondary = Color(0xFF9CA3AF);

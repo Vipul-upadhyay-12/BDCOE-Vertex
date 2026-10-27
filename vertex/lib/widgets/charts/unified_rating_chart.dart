@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:get/get.dart';
@@ -12,20 +13,20 @@ class UnifiedRatingChart extends StatelessWidget {
   final DashboardController dashboard = Get.find<DashboardController>();
   final PlatformController platform = Get.find<PlatformController>();
 
-  List<FlSpot> _buildSpotsForPlatform(String platformCode) {
-    final list = dashboard.ratingHistory
-        .where((p) => p.platform == platformCode)
-        .toList();
+  // Map dates continuously across timeline (X = day delta from global start)
+  List<FlSpot> _buildTimelineSpots(
+    List<RatingPointModel> platformPoints,
+    DateTime globalMinDate,
+  ) {
+    if (platformPoints.isEmpty) return [];
 
-    if (list.isEmpty) return [];
+    final sorted = List<RatingPointModel>.from(platformPoints)
+      ..sort((a, b) => a.date.compareTo(b.date));
 
-    // Sort chronologically
-    list.sort((a, b) => a.date.compareTo(b.date));
-
-    // Map index to X, rating to Y
-    return List.generate(list.length, (i) {
-      return FlSpot(i.toDouble(), list[i].rating.toDouble());
-    });
+    return sorted.map((p) {
+      final daysDiff = p.date.difference(globalMinDate).inDays.toDouble();
+      return FlSpot(daysDiff, p.rating.toDouble());
+    }).toList();
   }
 
   LineChartBarData _buildLineData({
@@ -34,19 +35,28 @@ class UnifiedRatingChart extends StatelessWidget {
   }) {
     return LineChartBarData(
       spots: spots,
-      isCurved: true,
-      curveSmoothness: 0.35,
+      isCurved: spots.length > 2,
+      curveSmoothness: 0.25,
       color: color,
-      barWidth: 2.5,
+      barWidth: 2.2,
       isStrokeCapRound: true,
-      dotData: const FlDotData(show: false),
+      dotData: FlDotData(
+        show: spots.length < 15,
+        getDotPainter: (spot, percent, barData, index) {
+          return FlDotCirclePainter(
+            radius: 2.2,
+            color: color,
+            strokeWidth: 0,
+          );
+        },
+      ),
       belowBarData: BarAreaData(
         show: true,
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            color.withValues(alpha: 0.2),
+            color.withValues(alpha: 0.16),
             color.withValues(alpha: 0.0),
           ],
         ),
@@ -67,12 +77,42 @@ class UnifiedRatingChart extends StatelessWidget {
         final peakRating = dashboard.peakRating.value;
         final peakPlatform = dashboard.peakPlatform.value;
 
-        final cfSpots = _buildSpotsForPlatform('CF');
-        final lcSpots = _buildSpotsForPlatform('LC');
-        final ccSpots = _buildSpotsForPlatform('CC');
+        // 1. Gather all valid points and sort globally
+        final allRatings = List<RatingPointModel>.from(dashboard.ratingHistory)
+          ..sort((a, b) => a.date.compareTo(b.date));
 
-        final bool hasAnyData =
-            cfSpots.isNotEmpty || lcSpots.isNotEmpty || ccSpots.isNotEmpty;
+        if (allRatings.isEmpty) {
+          return const SizedBox(
+            height: 180,
+            child: Center(
+              child: Text(
+                "No contest rating history found yet.",
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+            ),
+          );
+        }
+
+        final globalMinDate = allRatings.first.date;
+        final globalMaxDate = allRatings.last.date;
+        final totalDays = max(1, globalMaxDate.difference(globalMinDate).inDays).toDouble();
+
+        // 2. Separate points by platform
+        final cfList = allRatings.where((p) => p.platform == 'CF').toList();
+        final lcList = allRatings.where((p) => p.platform == 'LC').toList();
+        final ccList = allRatings.where((p) => p.platform == 'CC').toList();
+        final acList = allRatings.where((p) => p.platform == 'AC').toList();
+
+        // 3. Build time-proportional spots
+        final cfSpots = _buildTimelineSpots(cfList, globalMinDate);
+        final lcSpots = _buildTimelineSpots(lcList, globalMinDate);
+        final ccSpots = _buildTimelineSpots(ccList, globalMinDate);
+        final acSpots = _buildTimelineSpots(acList, globalMinDate);
+
+        // 4. Calculate dynamic Y-axis bounds
+        final allY = allRatings.map((p) => p.rating).toList();
+        final minY = ((allY.reduce(min) - 80) ~/ 100) * 100.0;
+        final maxY = ((allY.reduce(max) + 120) ~/ 100) * 100.0;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,8 +139,11 @@ class UnifiedRatingChart extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.star_rounded,
-                            color: AppColors.primaryGreen, size: 14),
+                        const Icon(
+                          Icons.star_rounded,
+                          color: AppColors.primaryGreen,
+                          size: 14,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           "Peak: $peakRating ($peakPlatform)",
@@ -117,66 +160,117 @@ class UnifiedRatingChart extends StatelessWidget {
             ),
             const SizedBox(height: 8),
 
-            // Platform Legend Tags (Only for linked accounts)
-            Row(
+            // Platform Legend Tags
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
               children: [
-                if (platform.savedCf.value.isNotEmpty)
+                if (platform.savedCf.value.isNotEmpty && cfSpots.isNotEmpty)
                   _legendDot("Codeforces", AppColors.codeforces),
-                if (platform.savedLc.value.isNotEmpty)
-                  _legendDot("LeetCode", AppColors.leetCode),
-                if (platform.savedCc.value.isNotEmpty)
+                if (platform.savedCc.value.isNotEmpty && ccSpots.isNotEmpty)
                   _legendDot("CodeChef", AppColors.codeChef),
+                if (platform.savedLc.value.isNotEmpty && lcSpots.isNotEmpty)
+                  _legendDot("LeetCode", AppColors.leetCode),
+                if (platform.savedAc.value.isNotEmpty && acSpots.isNotEmpty)
+                  _legendDot("AtCoder", AppColors.atCoder),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
             // Chart Canvas
             SizedBox(
-              height: 200,
-              child: hasAnyData
-                  ? LineChart(
-                      LineChartData(
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: false,
-                          horizontalInterval: 400,
-                          getDrawingHorizontalLine: (value) => const FlLine(
-                            color: AppColors.border,
-                            strokeWidth: 1,
-                            dashArray: [4, 4],
-                          ),
-                        ),
-                        titlesData: const FlTitlesData(
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          rightTitles: AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          topTitles: AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        lineBarsData: [
-                          if (cfSpots.isNotEmpty)
-                            _buildLineData(spots: cfSpots, color: AppColors.codeforces),
-                          if (lcSpots.isNotEmpty)
-                            _buildLineData(spots: lcSpots, color: AppColors.leetCode),
-                          if (ccSpots.isNotEmpty)
-                            _buildLineData(spots: ccSpots, color: AppColors.codeChef),
-                        ],
-                      ),
-                    )
-                  : const Center(
-                      child: Text(
-                        "No contest rating history found yet.",
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              height: 190,
+              child: LineChart(
+                LineChartData(
+                  minX: 0,
+                  maxX: totalDays,
+                  minY: max(0.0, minY),
+                  maxY: maxY,
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    horizontalInterval: 200,
+                    getDrawingHorizontalLine: (value) => const FlLine(
+                      color: AppColors.border,
+                      strokeWidth: 0.9,
+                      dashArray: [4, 4],
+                    ),
+                  ),
+                  titlesData: FlTitlesData(
+                    leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 22,
+                        interval: totalDays > 0 ? totalDays : 1,
+                        getTitlesWidget: (value, meta) {
+                          if (value == 0) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                "${globalMinDate.month}/${globalMinDate.year}",
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            );
+                          }
+                          if (value >= totalDays - 1) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                "${globalMaxDate.month}/${globalMaxDate.year}",
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
                       ),
                     ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  lineTouchData: LineTouchData(
+                    touchTooltipData: LineTouchTooltipData(
+                      getTooltipColor: (_) => AppColors.surfaceElevated,
+                      getTooltipItems: (touchedSpots) {
+                        return touchedSpots.map((spot) {
+                          return LineTooltipItem(
+                            spot.y.toInt().toString(),
+                            TextStyle(
+                              color: spot.bar.color ?? Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          );
+                        }).toList();
+                      },
+                    ),
+                  ),
+                  lineBarsData: [
+                    if (cfSpots.isNotEmpty)
+                      _buildLineData(spots: cfSpots, color: AppColors.codeforces),
+                    if (ccSpots.isNotEmpty)
+                      _buildLineData(spots: ccSpots, color: AppColors.codeChef),
+                    if (lcSpots.isNotEmpty)
+                      _buildLineData(spots: lcSpots, color: AppColors.leetCode),
+                    if (acSpots.isNotEmpty)
+                      _buildLineData(spots: acSpots, color: AppColors.atCoder),
+                  ],
+                ),
+              ),
             ),
           ],
         );
@@ -186,8 +280,9 @@ class UnifiedRatingChart extends StatelessWidget {
 
   Widget _legendDot(String name, Color color) {
     return Padding(
-      padding: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.only(right: 8),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             width: 8,
