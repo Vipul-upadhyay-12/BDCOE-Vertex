@@ -37,6 +37,19 @@ class CPProApp extends StatelessWidget {
       title: 'vertex',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkEmeraldTheme,
+
+      builder: (context, child) {
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) {
+            if (Get.isSnackbarOpen) {
+              Get.closeCurrentSnackbar();
+            }
+          },
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+
       home: Obx(() => auth.currentUser.value != null
           ? MainShellView()
           : AuthView()),

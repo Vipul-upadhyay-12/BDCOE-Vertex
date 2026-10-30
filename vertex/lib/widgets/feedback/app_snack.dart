@@ -4,42 +4,49 @@ import '../../core/constants/app_colors.dart';
 
 class AppSnack {
   static void show({
-    required String title,
-    required String message,
+    String? title,
+    String? message,
     bool isError = false,
     Duration duration = const Duration(seconds: 3),
+    SnackPosition? snackPosition,
+    Color? backgroundColor,
+    Color? colorText,
   }) {
-    // Prevent duplicate stacked overlays from blocking button taps
+    // 1. Instantly kill any active or queued snackbar so buttons never freeze
     if (Get.isSnackbarOpen) {
-      Get.closeAllSnackbars();
+      Get.closeCurrentSnackbar();
     }
+
+    final Color effectiveBorderColor = isError ? AppColors.error : AppColors.primaryGreen;
+    final Color effectiveTitleColor = colorText ?? Colors.white;
 
     Get.rawSnackbar(
       titleText: Text(
-        title,
-        style: const TextStyle(
-          color: Colors.white,
+        title ?? '',
+        style: TextStyle(
+          color: effectiveTitleColor,
           fontWeight: FontWeight.bold,
           fontSize: 14,
         ),
       ),
       messageText: Text(
-        message,
+        message ?? '',
         style: const TextStyle(
           color: AppColors.textSecondary,
           fontSize: 12,
         ),
       ),
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: AppColors.surfaceElevated,
-      borderColor: isError ? AppColors.error : AppColors.primaryGreen,
+      snackPosition: snackPosition ?? SnackPosition.BOTTOM,
+      backgroundColor: backgroundColor ?? AppColors.surfaceElevated,
+      borderColor: effectiveBorderColor,
       borderWidth: 1.2,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       borderRadius: 12,
       duration: duration,
       isDismissible: true,
-      // Prevents the overlay from blocking background tap gestures:
-      overlayBlur: 0,
+      dismissDirection: DismissDirection.horizontal,
+      instantInit: true,
+      animationDuration: const Duration(milliseconds: 150),
       snackStyle: SnackStyle.FLOATING,
     );
   }
